@@ -152,16 +152,11 @@ pub struct CheckRun {
     #[serde(default)]
     pub completed_at: Option<String>,
     #[serde(default)]
-    pub output: Option<CheckRunOutput>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CheckRunOutput {
-    #[serde(default)]
     pub summary: Option<String>,
     #[serde(default)]
     pub text: Option<String>,
+    #[serde(default)]
+    pub is_required: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -182,7 +177,7 @@ pub struct StatusContext {
     #[serde(default)]
     pub description: Option<String>,
     #[serde(default)]
-    pub required: bool,
+    pub is_required: bool,
     #[serde(default)]
     pub created_at: Option<String>,
 }

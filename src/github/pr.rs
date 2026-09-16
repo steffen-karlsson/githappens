@@ -166,11 +166,11 @@ fn check_from_context(ctx: &CheckContext) -> CheckSnapshot {
                 name: cr.name.clone(),
                 kind: CheckKind::CheckRun,
                 status,
-                required: false,
+                required: cr.is_required,
                 started_at: cr.started_at.clone(),
                 completed_at: cr.completed_at.clone(),
-                output_text: cr.output.as_ref().and_then(|o| o.text.clone()),
-                output_summary: cr.output.as_ref().and_then(|o| o.summary.clone()),
+                output_text: cr.text.clone(),
+                output_summary: cr.summary.clone(),
             }
         }
         CheckContext::StatusContext(sc) => {
@@ -187,7 +187,7 @@ fn check_from_context(ctx: &CheckContext) -> CheckSnapshot {
                 name: sc.context.clone(),
                 kind: CheckKind::StatusContext,
                 status,
-                required: sc.required,
+                required: sc.is_required,
                 started_at: sc.created_at.clone(),
                 completed_at: None,
                 output_text: sc.description.clone(),

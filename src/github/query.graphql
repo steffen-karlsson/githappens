@@ -34,16 +34,14 @@ query OpenPRs($first: Int!, $after: String) {
                       conclusion
                       startedAt
                       completedAt
-                      output {
-                        summary
-                        text
-                      }
+                      summary
+                      text
                     }
                     ... on StatusContext {
                       context
                       state
                       description
-                      required
+                      isRequired
                       createdAt
                     }
                   }
