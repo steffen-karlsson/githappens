@@ -39,6 +39,9 @@ dbg_macro = "deny"
 print_stdout = "deny"
 print_stderr = "deny"
 
+[lints.rust]
+dead_code = "deny"
+
 [lints.rustdoc]
 broken_intra_doc_links = "deny"
 
