@@ -1,7 +1,7 @@
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Clear, Paragraph};
+use ratatui::widgets::{Block, Borders, Clear, Paragraph, Row, Table, TableState};
 
 use crate::analysis::approval::collapse_reviews;
 use crate::analysis::mergeability::assess;
@@ -12,7 +12,7 @@ use crate::ui::components;
 use crate::ui::theme;
 
 const MAX_DESC_LINES: usize = 2;
-const MAX_VISIBLE_ROWS: usize = 5;
+const MAX_VISIBLE_ROWS: u16 = 6;
 
 pub fn render(frame: &mut ratatui::Frame, area: Rect, app: &App) {
     let Some(pr) = app.selected_pr() else {
@@ -24,7 +24,11 @@ pub fn render(frame: &mut ratatui::Frame, area: Rect, app: &App) {
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .title(format!(" {} #{} — {} ", pr.repo, pr.number, pr.title));
+        .border_style(Style::default().fg(theme::COLOR_NONE))
+        .title(Span::styled(
+            format!(" {} #{} — {} ", pr.repo, pr.number, pr.title),
+            Style::default().fg(theme::COLOR_NONE),
+        ));
     frame.render_widget(block, popup);
 
     let inner = Rect {
@@ -35,10 +39,10 @@ pub fn render(frame: &mut ratatui::Frame, area: Rect, app: &App) {
     };
 
     let chunks = Layout::vertical([
-        Constraint::Length(4),
-        Constraint::Length(MAX_DESC_LINES as u16 + 1),
-        Constraint::Length(MAX_VISIBLE_ROWS as u16 + 2),
-        Constraint::Length(MAX_VISIBLE_ROWS as u16 + 2),
+        Constraint::Length(2),
+        Constraint::Length(MAX_DESC_LINES as u16 + 2),
+        Constraint::Length(MAX_VISIBLE_ROWS + 2),
+        Constraint::Length(MAX_VISIBLE_ROWS + 2),
         Constraint::Min(1),
     ])
     .split(inner);
@@ -78,7 +82,7 @@ fn render_details(frame: &mut ratatui::Frame, area: Rect, pr: &PullRequestSnapsh
         spans
     });
 
-    frame.render_widget(Paragraph::new(vec![line, Line::from("")]), area);
+    frame.render_widget(Paragraph::new(vec![line]), area);
 }
 
 fn render_description_container(
@@ -88,50 +92,47 @@ fn render_description_container(
     focused: bool,
     app: &App,
 ) {
+    let style = if focused {
+        Style::default().fg(theme::COLOR_HEADER)
+    } else {
+        Style::default().fg(theme::COLOR_NONE)
+    };
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(style)
+        .title(Span::styled("Description", style));
+    frame.render_widget(block, area);
+
+    let inner = Rect {
+        x: area.x + 1,
+        y: area.y + 1,
+        width: area.width.saturating_sub(2),
+        height: area.height.saturating_sub(2),
+    };
+
     let cleaned = if pr.body.is_empty() {
         String::new()
     } else {
         components::strip_markdown(&pr.body)
     };
 
-    let display = if cleaned.is_empty() {
-        "No description provided.".to_string()
-    } else {
-        let wrapped = components::wrap_text(&cleaned, area.width.saturating_sub(2) as usize);
-        components::truncate_lines(&wrapped.join("\n"), MAX_DESC_LINES)
-    };
-
-    let style = if focused {
-        Style::default().fg(theme::COLOR_HEADER)
-    } else {
-        Style::default()
-    };
-
-    let block = Block::default().title(Span::styled("Description", style));
-    frame.render_widget(block, area);
-
-    let inner = Rect {
-        x: area.x + 1,
-        y: area.y,
-        width: area.width.saturating_sub(1),
-        height: area.height,
-    };
-
-    let lines: Vec<Line> = if display.is_empty() {
+    let lines: Vec<Line> = if cleaned.is_empty() {
         vec![Line::from(Span::styled(
-            "  No description provided.",
+            "No description provided.",
             Style::default().fg(theme::COLOR_NONE),
         ))]
     } else {
-        display
+        let wrapped = components::wrap_text(&cleaned, inner.width as usize);
+        let truncated = components::truncate_lines(&wrapped.join("\n"), MAX_DESC_LINES);
+        truncated
             .lines()
-            .map(|l| Line::from(format!(" {l}")))
+            .map(|s| Line::from(s.to_string()))
             .collect()
     };
 
     let scroll = if focused { app.describe_scroll } else { 0 };
-    let paragraph = Paragraph::new(lines).scroll((scroll as u16, 0));
-    frame.render_widget(paragraph, inner);
+    frame.render_widget(Paragraph::new(lines).scroll((scroll as u16, 0)), inner);
 }
 
 fn render_checks_container(
@@ -141,16 +142,17 @@ fn render_checks_container(
     focused: bool,
     app: &App,
 ) {
-    let style = if focused {
+    let border_style = if focused {
         Style::default().fg(theme::COLOR_HEADER)
     } else {
-        Style::default()
+        Style::default().fg(theme::COLOR_NONE)
     };
 
     let total = pr.checks.len();
     let block = Block::default()
         .borders(Borders::ALL)
-        .title(Span::styled("Checks", style));
+        .border_style(border_style)
+        .title(Span::styled("Checks", border_style));
     frame.render_widget(block, area);
 
     let inner = Rect {
@@ -162,7 +164,7 @@ fn render_checks_container(
 
     if pr.checks.is_empty() {
         frame.render_widget(
-            Paragraph::new(" No checks found.").style(Style::default().fg(theme::COLOR_NONE)),
+            Paragraph::new("No checks found.").style(Style::default().fg(theme::COLOR_NONE)),
             inner,
         );
         return;
@@ -170,51 +172,87 @@ fn render_checks_container(
 
     let indices = components::group_checks_by_status(&pr.checks);
 
-    let mut lines: Vec<Line> = vec![Line::from(vec![
-        Span::styled("Status  ", Style::default().fg(theme::COLOR_HEADER)),
-        Span::styled("Name", Style::default().fg(theme::COLOR_HEADER)),
-    ])];
+    let header = Row::new([
+        Line::from(Span::styled(
+            "Status",
+            Style::default().fg(theme::COLOR_HEADER),
+        )),
+        Line::from(Span::styled(
+            "Name",
+            Style::default().fg(theme::COLOR_HEADER),
+        )),
+        Line::from(Span::styled(
+            "Req",
+            Style::default().fg(theme::COLOR_HEADER),
+        )),
+        Line::from(Span::styled(
+            "Duration",
+            Style::default().fg(theme::COLOR_HEADER),
+        )),
+        Line::from(Span::styled(
+            "Age",
+            Style::default().fg(theme::COLOR_HEADER),
+        )),
+    ]);
 
-    for &i in &indices {
-        let check = &pr.checks[i];
-        let (icon, color) = check_icon_and_color(&check.status);
-        let duration = match (&check.started_at, &check.completed_at) {
-            (Some(start), Some(end)) => components::format_duration(start, Some(end)),
-            (Some(_), None) => "–".to_string(),
-            _ => "–".to_string(),
-        };
-        let age = check
-            .started_at
-            .as_deref()
-            .map(components::format_age)
-            .unwrap_or_else(|| "–".to_string());
-        lines.push(Line::from(vec![
-            Span::styled(format!(" {icon}"), Style::default().fg(color)),
-            Span::raw("  "),
-            Span::raw(check.name.clone()),
-            Span::raw(format!("  {}  {}", duration, age)),
-        ]));
+    let selected = if focused { app.describe_scroll } else { 0 };
+
+    let rows: Vec<Row> = indices
+        .iter()
+        .enumerate()
+        .map(|(row_idx, &i)| {
+            let check = &pr.checks[i];
+            let (icon, color) = check_icon_and_color(&check.status);
+            let duration = match (&check.started_at, &check.completed_at) {
+                (Some(start), Some(end)) => components::format_duration(start, Some(end)),
+                _ => "–".to_string(),
+            };
+            let age = check
+                .started_at
+                .as_deref()
+                .map(components::format_age)
+                .unwrap_or_else(|| "–".to_string());
+
+            let row = Row::new([
+                Line::from(Span::styled(icon.to_string(), Style::default().fg(color))),
+                Line::from(check.name.clone()),
+                Line::from(if check.required { "✓" } else { "–" }),
+                Line::from(duration),
+                Line::from(age),
+            ]);
+
+            if focused && row_idx == selected {
+                row.style(
+                    Style::default()
+                        .bg(theme::COLOR_SELECTED_BG)
+                        .fg(theme::COLOR_SELECTED),
+                )
+            } else {
+                row
+            }
+        })
+        .collect();
+
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Length(6),
+            Constraint::Min(1),
+            Constraint::Length(5),
+            Constraint::Length(12),
+            Constraint::Length(8),
+        ],
+    )
+    .header(header);
+
+    let mut state = TableState::default();
+    if focused {
+        state.select(Some(selected));
     }
 
-    let scroll = if focused { app.describe_scroll } else { 0 };
-    frame.render_widget(Paragraph::new(lines).scroll((scroll as u16, 0)), inner);
+    frame.render_stateful_widget(table, inner, &mut state);
 
-    let total_y = area.y + area.height - 1;
-    let total_str = format!(" {} ", total);
-    let total_len = total_str.len() as u16;
-    let total_x = area.x + area.width.saturating_sub(total_len);
-    frame.render_widget(
-        Paragraph::new(Span::styled(
-            total_str,
-            Style::default().fg(theme::COLOR_NONE),
-        )),
-        Rect {
-            x: total_x,
-            y: total_y,
-            width: total_len,
-            height: 1,
-        },
-    );
+    render_total_count(frame, area, total);
 }
 
 fn render_activity_container(
@@ -224,10 +262,10 @@ fn render_activity_container(
     focused: bool,
     app: &App,
 ) {
-    let style = if focused {
+    let border_style = if focused {
         Style::default().fg(theme::COLOR_HEADER)
     } else {
-        Style::default()
+        Style::default().fg(theme::COLOR_NONE)
     };
 
     let entries = components::build_activity_entries(&pr.reviews, &pr.comments);
@@ -235,7 +273,8 @@ fn render_activity_container(
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .title(Span::styled("Activity", style));
+        .border_style(border_style)
+        .title(Span::styled("Activity", border_style));
     frame.render_widget(block, area);
 
     let inner = Rect {
@@ -247,48 +286,93 @@ fn render_activity_container(
 
     if entries.is_empty() {
         frame.render_widget(
-            Paragraph::new(" No activity.").style(Style::default().fg(theme::COLOR_NONE)),
+            Paragraph::new("No activity.").style(Style::default().fg(theme::COLOR_NONE)),
             inner,
         );
         return;
     }
 
-    let mut lines: Vec<Line> = vec![Line::from(vec![
-        Span::styled("Type         ", Style::default().fg(theme::COLOR_HEADER)),
-        Span::styled(
-            "Author              ",
+    let header = Row::new([
+        Line::from(Span::styled(
+            "Type",
             Style::default().fg(theme::COLOR_HEADER),
-        ),
-        Span::styled("Label  ", Style::default().fg(theme::COLOR_HEADER)),
-        Span::styled("Age", Style::default().fg(theme::COLOR_HEADER)),
-    ])];
+        )),
+        Line::from(Span::styled(
+            "Author",
+            Style::default().fg(theme::COLOR_HEADER),
+        )),
+        Line::from(Span::styled(
+            "Label",
+            Style::default().fg(theme::COLOR_HEADER),
+        )),
+        Line::from(Span::styled(
+            "Age",
+            Style::default().fg(theme::COLOR_HEADER),
+        )),
+    ]);
 
-    for e in &entries {
-        let label_color = match e.label {
-            components::AuthorLabel::Ai => theme::COLOR_WAITING,
-            components::AuthorLabel::Bot => theme::COLOR_NONE,
-            components::AuthorLabel::None => theme::COLOR_NONE,
-        };
-        let kind_str = format!("{:<14}", e.kind.display());
-        let author_str = format!("{:<20}", e.author);
-        let label_str = format!("{:<6}", e.label.display());
-        let age = components::format_age(&e.created_at);
+    let selected = if focused { app.describe_scroll } else { 0 };
 
-        lines.push(Line::from(vec![
-            Span::styled(kind_str, Style::default()),
-            Span::styled(author_str, Style::default().add_modifier(Modifier::BOLD)),
-            Span::styled(label_str, Style::default().fg(label_color)),
-            Span::raw(age),
-        ]));
+    let rows: Vec<Row> = entries
+        .iter()
+        .enumerate()
+        .map(|(row_idx, e)| {
+            let label_color = match e.label {
+                components::AuthorLabel::Ai => theme::COLOR_WAITING,
+                components::AuthorLabel::Bot | components::AuthorLabel::None => theme::COLOR_NONE,
+            };
+
+            let row = Row::new([
+                Line::from(e.kind.display()),
+                Line::from(Span::styled(
+                    e.author.clone(),
+                    Style::default().add_modifier(Modifier::BOLD),
+                )),
+                Line::from(Span::styled(
+                    e.label.display(),
+                    Style::default().fg(label_color),
+                )),
+                Line::from(components::format_age(&e.created_at)),
+            ]);
+
+            if focused && row_idx == selected {
+                row.style(
+                    Style::default()
+                        .bg(theme::COLOR_SELECTED_BG)
+                        .fg(theme::COLOR_SELECTED),
+                )
+            } else {
+                row
+            }
+        })
+        .collect();
+
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Length(14),
+            Constraint::Min(1),
+            Constraint::Length(6),
+            Constraint::Length(8),
+        ],
+    )
+    .header(header);
+
+    let mut state = TableState::default();
+    if focused {
+        state.select(Some(selected));
     }
 
-    let scroll = if focused { app.describe_scroll } else { 0 };
-    frame.render_widget(Paragraph::new(lines).scroll((scroll as u16, 0)), inner);
+    frame.render_stateful_widget(table, inner, &mut state);
 
-    let total_y = area.y + area.height - 1;
+    render_total_count(frame, area, total);
+}
+
+fn render_total_count(frame: &mut ratatui::Frame, area: Rect, total: usize) {
     let total_str = format!(" {} ", total);
     let total_len = total_str.len() as u16;
-    let total_x = area.x + area.width.saturating_sub(total_len);
+    let total_y = area.y + area.height - 1;
+    let total_x = area.x + area.width.saturating_sub(total_len + 1);
     frame.render_widget(
         Paragraph::new(Span::styled(
             total_str,
@@ -338,7 +422,11 @@ fn render_subview(
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .title(format!(" {} ", title));
+        .border_style(Style::default().fg(theme::COLOR_NONE))
+        .title(Span::styled(
+            format!(" {} ", title),
+            Style::default().fg(theme::COLOR_NONE),
+        ));
     frame.render_widget(block, popup);
 
     let inner = Rect {

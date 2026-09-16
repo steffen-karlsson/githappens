@@ -142,6 +142,7 @@ pub enum CheckRunConclusion {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CheckRun {
     #[serde(default)]
     pub name: String,
@@ -170,6 +171,7 @@ pub enum StatusState {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusContext {
     #[serde(default)]
     pub context: String,

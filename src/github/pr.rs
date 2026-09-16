@@ -145,10 +145,7 @@ fn check_from_context(ctx: &CheckContext) -> CheckSnapshot {
                         | CheckRunConclusion::Cancelled
                 )
             );
-            let skipped = matches!(
-                cr.conclusion,
-                Some(CheckRunConclusion::Skipped | CheckRunConclusion::Neutral)
-            );
+            let skipped = matches!(cr.conclusion, Some(CheckRunConclusion::Skipped));
             let running = !completed
                 && matches!(
                     cr.status,
