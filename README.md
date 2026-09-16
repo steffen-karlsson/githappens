@@ -119,7 +119,7 @@ dimensions (checks, approval, mergeable state, up-to-date, draft).
 | Glyph | Color | State | Meaning |
 |-------|-------|-------|---------|
 | `●` | green | Ready | Mergeable, checks pass, approved, up-to-date, not draft |
-| `◐` | yellow | Waiting | Pending checks, no approval, or draft |
+| `●` | yellow | Waiting | Pending checks, no approval, or draft |
 | `●` | red | Failed | Failed checks, changes requested, conflicting, out-of-date, or mergeable unknown |
 
 Edge cases:

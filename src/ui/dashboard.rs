@@ -141,13 +141,13 @@ fn render_table(frame: &mut ratatui::Frame, area: Rect, app: &App) {
             };
 
             Row::new([
-                Line::from(glyph).style(Style::default().fg(color)),
+                Line::from(format!(" {glyph}")).style(Style::default().fg(color)),
                 Line::from(pr.number.to_string()),
                 Line::from(title),
                 Line::from(diff_spans),
                 Line::from(checks_str),
-                Line::from(rev_glyph).style(Style::default().fg(rev_color)),
-                Line::from(utd_glyph).style(Style::default().fg(utd_color)),
+                Line::from(format!(" {rev_glyph}")).style(Style::default().fg(rev_color)),
+                Line::from(format!(" {utd_glyph}")).style(Style::default().fg(utd_color)),
                 Line::from(age_str),
             ])
             .style(if i == app.selected {

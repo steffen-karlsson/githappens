@@ -94,7 +94,7 @@ The status indicator is the **worst** of all constituent signals:
 | State | Conditions | Glyph | Color |
 |-------|-----------|-------|-------|
 | **Ready** | `mergeable == MERGEABLE` AND checks pass AND approved AND up-to-date AND not draft | `●` | green |
-| **Waiting** | Not failed, not ready (pending checks, no approval, draft) | `◐` | yellow |
+| **Waiting** | Not failed, not ready (pending checks, no approval, draft) | `●` | yellow |
 | **Failed** | Checks failed OR changes requested OR `mergeable == CONFLICTING` OR `mergeable == UNKNOWN` OR out-of-date | `●` | red |
 
 ### Up-to-date tracking

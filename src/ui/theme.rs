@@ -1,10 +1,10 @@
 use ratatui::style::Color;
 
 pub const GLYPH_READY: &str = "●";
-pub const GLYPH_WAITING: &str = "◐";
+pub const GLYPH_WAITING: &str = "●";
 pub const GLYPH_FAILED: &str = "●";
 pub const GLYPH_APPROVED: &str = "●";
-pub const GLYPH_PENDING: &str = "◔";
+pub const GLYPH_PENDING: &str = "●";
 pub const GLYPH_NONE: &str = "○";
 pub const GLYPH_CHANGES_REQUESTED: &str = "●";
 
@@ -23,11 +23,11 @@ pub const HEADER_LABEL: &str = " githappens ";
 pub const FOOTER_HINT: &str = " r refresh · q quit ";
 pub const EMPTY_STATE_MSG: &str = "You have no open PRs. Go open one!";
 
-pub const COLUMN_INDICATOR_WIDTH: usize = 2;
+pub const COLUMN_INDICATOR_WIDTH: usize = 3;
 pub const COLUMN_NUMBER_WIDTH: usize = 6;
 pub const COLUMN_CHECKS_WIDTH: usize = 8;
-pub const COLUMN_REVIEW_WIDTH: usize = 10;
-pub const COLUMN_UPTODATE_WIDTH: usize = 10;
+pub const COLUMN_REVIEW_WIDTH: usize = 11;
+pub const COLUMN_UPTODATE_WIDTH: usize = 11;
 pub const COLUMN_DIFF_WIDTH: usize = 14;
 pub const COLUMN_AGE_WIDTH: usize = 6;
 
