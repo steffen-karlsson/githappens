@@ -144,7 +144,10 @@ impl App {
         if self.describe_subview.is_some() {
             self.describe_subview_scroll = self.describe_subview_scroll.saturating_add(1);
         } else {
-            self.describe_scroll = self.describe_scroll.saturating_add(1);
+            let max = self.describe_max_scroll();
+            if self.describe_scroll < max {
+                self.describe_scroll += 1;
+            }
         }
     }
 
@@ -153,6 +156,17 @@ impl App {
             self.describe_subview_scroll = self.describe_subview_scroll.saturating_sub(1);
         } else {
             self.describe_scroll = self.describe_scroll.saturating_sub(1);
+        }
+    }
+
+    fn describe_max_scroll(&self) -> usize {
+        let Some(pr) = self.prs.get(self.selected) else {
+            return 0;
+        };
+        match self.describe_focus {
+            DescribeFocus::Description => 0,
+            DescribeFocus::Checks => pr.checks.len().saturating_sub(1),
+            DescribeFocus::Activity => (pr.reviews.len() + pr.comments.len()).saturating_sub(1),
         }
     }
 
