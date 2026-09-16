@@ -78,10 +78,18 @@ fn render_details(frame: &mut ratatui::Frame, area: Rect, pr: &PullRequestSnapsh
             Style::default().fg(theme::COLOR_NONE),
         ))]
     } else {
-        pr.body
-            .lines()
-            .map(|l| Line::from(format!("  {l}")))
-            .collect()
+        let cleaned = strip_markdown(&pr.body);
+        if cleaned.is_empty() {
+            vec![Line::from(Span::styled(
+                "  No description provided.",
+                Style::default().fg(theme::COLOR_NONE),
+            ))]
+        } else {
+            cleaned
+                .lines()
+                .map(|l| Line::from(format!("  {l}")))
+                .collect()
+        }
     };
 
     let all_lines: Vec<Line> = lines
