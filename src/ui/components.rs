@@ -186,21 +186,16 @@ pub fn detect_label(login: &str) -> AuthorLabel {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum EntryKind {
-    Review(ReviewState),
+    Approved,
+    Review,
     Comment,
 }
 
 impl EntryKind {
     pub fn display(&self) -> &'static str {
         match self {
-            EntryKind::Review(state) => match state {
-                ReviewState::Approved => "Approved",
-                ReviewState::ChangesRequested => "Changes Req.",
-                ReviewState::Commented => "Commented",
-                ReviewState::Dismissed => "Dismissed",
-                ReviewState::Pending => "Pending",
-                ReviewState::Other => "Review",
-            },
+            EntryKind::Approved => "Approved",
+            EntryKind::Review => "Review",
             EntryKind::Comment => "Comment",
         }
     }
@@ -222,8 +217,12 @@ pub fn build_activity_entries(
     let mut entries: Vec<ActivityEntry> = Vec::new();
 
     for review in reviews {
+        let kind = match review.state {
+            ReviewState::Approved => EntryKind::Approved,
+            _ => EntryKind::Review,
+        };
         entries.push(ActivityEntry {
-            kind: EntryKind::Review(review.state.clone()),
+            kind,
             author: review.author.clone(),
             label: detect_label(&review.author),
             created_at: review.submitted_at.clone().unwrap_or_default(),
@@ -503,7 +502,6 @@ mod tests {
             name: name.to_string(),
             kind: crate::github::pr::CheckKind::CheckRun,
             status,
-            required: false,
             started_at: None,
             completed_at: None,
             output_text: None,
@@ -554,18 +552,8 @@ mod tests {
 
     #[test]
     fn entry_kind_review_display() {
-        assert_eq!(
-            EntryKind::Review(ReviewState::Approved).display(),
-            "Approved"
-        );
-        assert_eq!(
-            EntryKind::Review(ReviewState::ChangesRequested).display(),
-            "Changes Req."
-        );
-        assert_eq!(
-            EntryKind::Review(ReviewState::Commented).display(),
-            "Commented"
-        );
+        assert_eq!(EntryKind::Approved.display(), "Approved");
+        assert_eq!(EntryKind::Review.display(), "Review");
     }
 
     #[test]

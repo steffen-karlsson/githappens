@@ -156,8 +156,6 @@ pub struct CheckRun {
     pub summary: Option<String>,
     #[serde(default)]
     pub text: Option<String>,
-    #[serde(default)]
-    pub is_required: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -178,8 +176,6 @@ pub struct StatusContext {
     pub state: StatusState,
     #[serde(default)]
     pub description: Option<String>,
-    #[serde(default)]
-    pub is_required: bool,
     #[serde(default)]
     pub created_at: Option<String>,
 }

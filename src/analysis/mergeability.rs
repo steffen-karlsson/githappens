@@ -75,7 +75,6 @@ mod tests {
             name: "CI".to_string(),
             kind: CheckKind::CheckRun,
             status,
-            required: false,
             started_at: None,
             completed_at: None,
             output_text: None,

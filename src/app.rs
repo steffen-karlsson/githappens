@@ -1006,7 +1006,6 @@ mod tests {
                     name: "CI".to_string(),
                     kind: crate::github::pr::CheckKind::CheckRun,
                     status: crate::github::pr::CheckStatus::Success,
-                    required: false,
                     started_at: None,
                     completed_at: None,
                     output_text: None,

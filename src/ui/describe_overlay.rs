@@ -182,10 +182,6 @@ fn render_checks_container(
             Style::default().fg(theme::COLOR_HEADER),
         )),
         Line::from(Span::styled(
-            "Req",
-            Style::default().fg(theme::COLOR_HEADER),
-        )),
-        Line::from(Span::styled(
             "Duration",
             Style::default().fg(theme::COLOR_HEADER),
         )),
@@ -216,7 +212,6 @@ fn render_checks_container(
             let row = Row::new([
                 Line::from(Span::styled(icon.to_string(), Style::default().fg(color))),
                 Line::from(check.name.clone()),
-                Line::from(if check.required { "✓" } else { "–" }),
                 Line::from(duration),
                 Line::from(age),
             ]);
@@ -238,7 +233,6 @@ fn render_checks_container(
         [
             Constraint::Length(6),
             Constraint::Min(1),
-            Constraint::Length(5),
             Constraint::Length(12),
             Constraint::Length(8),
         ],

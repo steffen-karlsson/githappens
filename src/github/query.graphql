@@ -41,7 +41,6 @@ query OpenPRs($first: Int!, $after: String) {
                       context
                       state
                       description
-                      isRequired
                       createdAt
                     }
                   }
