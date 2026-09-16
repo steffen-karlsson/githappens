@@ -28,6 +28,7 @@ pub const EMPTY_STATE_MSG: &str = "You have no open PRs. Go open one!";
 pub const COLUMN_INDICATOR_WIDTH: usize = 3;
 pub const COLUMN_NUMBER_WIDTH: usize = 6;
 pub const COLUMN_CHECKS_WIDTH: usize = 14;
+pub const COLUMN_COMMENTS_WIDTH: usize = 9;
 pub const COLUMN_REVIEW_WIDTH: usize = 11;
 pub const COLUMN_UPTODATE_WIDTH: usize = 11;
 pub const COLUMN_DIFF_WIDTH: usize = 14;

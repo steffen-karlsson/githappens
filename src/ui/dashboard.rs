@@ -100,6 +100,7 @@ fn render_table(frame: &mut ratatui::Frame, area: Rect, app: &App) {
         Line::from("Title"),
         Line::from("Diff"),
         Line::from("Checks"),
+        Line::from("Comments"),
         Line::from("Approval"),
         Line::from("Up-to-date"),
         Line::from("Age"),
@@ -119,6 +120,7 @@ fn render_table(frame: &mut ratatui::Frame, area: Rect, app: &App) {
             let (rev_glyph, rev_color) = theme::approval_glyph_and_color(&approval);
             let (utd_glyph, utd_color) = theme::up_to_date_glyph_and_color(&pr.up_to_date);
             let diff_spans = Line::from(theme::diff_spans(pr.additions, pr.deletions));
+            let comment_count = pr.reviews.len() + pr.comments.len();
             let age_str = format_age(&pr.created_at);
 
             let title = if pr.is_draft {
@@ -133,6 +135,7 @@ fn render_table(frame: &mut ratatui::Frame, area: Rect, app: &App) {
                 Line::from(title),
                 diff_spans,
                 checks_spans,
+                Line::from(comment_count.to_string()),
                 Line::from(format!(" {rev_glyph}")).style(Style::default().fg(rev_color)),
                 Line::from(format!(" {utd_glyph}")).style(Style::default().fg(utd_color)),
                 Line::from(age_str),
@@ -155,6 +158,7 @@ fn render_table(frame: &mut ratatui::Frame, area: Rect, app: &App) {
             Constraint::Min(1),
             Constraint::Length(theme::COLUMN_DIFF_WIDTH as u16),
             Constraint::Length(theme::COLUMN_CHECKS_WIDTH as u16),
+            Constraint::Length(theme::COLUMN_COMMENTS_WIDTH as u16),
             Constraint::Length(theme::COLUMN_REVIEW_WIDTH as u16),
             Constraint::Length(theme::COLUMN_UPTODATE_WIDTH as u16),
             Constraint::Length(theme::COLUMN_AGE_WIDTH as u16),
