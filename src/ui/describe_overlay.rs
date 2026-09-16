@@ -31,7 +31,7 @@ pub fn render(frame: &mut ratatui::Frame, area: Rect, app: &App) {
     };
 
     let chunks = Layout::vertical([
-        Constraint::Length(7),
+        Constraint::Length(4),
         Constraint::Length(4),
         Constraint::Length(pr.checks.len() as u16 + 3),
         Constraint::Min(1),
@@ -46,32 +46,23 @@ pub fn render(frame: &mut ratatui::Frame, area: Rect, app: &App) {
 
 fn render_details(frame: &mut ratatui::Frame, area: Rect, pr: &PullRequestSnapshot) {
     let readiness = assess(pr);
-    let (glyph, color) = theme::merge_glyph_and_color(&readiness);
+    let (_, color) = theme::merge_glyph_and_color(&readiness);
     let counts = count_checks(&pr.checks);
     let approval = collapse_reviews(&pr.reviews);
 
     let lines = vec![
         Line::from(vec![
-            Span::styled(format!(" {glyph} "), Style::default().fg(color)),
-            Span::raw(format!("{} · {} ", pr.repo, pr.number)),
-            Span::styled(
-                if pr.is_draft { "[Draft] " } else { "" },
-                Style::default().add_modifier(Modifier::BOLD),
-            ),
-            Span::raw(format!("+{}/{}", pr.additions, pr.deletions)),
-        ]),
-        Line::from(""),
-        Line::from(Span::styled(
-            format!(" {} ", pr.url),
-            Style::default().fg(theme::COLOR_NONE),
-        )),
-        Line::from(""),
-        Line::from(vec![
             Span::styled("Status: ", Style::default().add_modifier(Modifier::BOLD)),
             Span::styled(format!("{:?}", readiness), Style::default().fg(color)),
             Span::raw(format!(
-                "  ·  Checks: {}/{}/{}/{}  ·  Approval: {:?}",
-                counts.success, counts.failed, counts.running, counts.skipped, approval
+                "  ·  Diff: +{}/{}  ·  Checks: {}/{}/{}/{}  ·  Approval: {:?}",
+                pr.additions,
+                pr.deletions,
+                counts.success,
+                counts.failed,
+                counts.running,
+                counts.skipped,
+                approval
             )),
         ]),
         Line::from(""),
