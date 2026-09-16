@@ -48,7 +48,6 @@ fn render_details(frame: &mut ratatui::Frame, area: Rect, pr: &PullRequestSnapsh
     let readiness = assess(pr);
     let (glyph, color) = theme::merge_glyph_and_color(&readiness);
     let counts = count_checks(&pr.checks);
-    let approval = collapse_reviews(&pr.reviews);
 
     let lines = vec![
         Line::from(vec![
@@ -70,18 +69,31 @@ fn render_details(frame: &mut ratatui::Frame, area: Rect, pr: &PullRequestSnapsh
             Span::styled("Status: ", Style::default().add_modifier(Modifier::BOLD)),
             Span::styled(format!("{:?}", readiness), Style::default().fg(color)),
             Span::raw(format!(
-                "  ·  Checks: {}/{}/{}/{}  ·  Approval: {:?}",
-                counts.success, counts.failed, counts.running, counts.skipped, approval
+                "  ·  Checks: {}/{}/{}/{}",
+                counts.success, counts.failed, counts.running, counts.skipped
             )),
         ]),
         Line::from(""),
         Line::from(Span::styled(
-            "Description:",
+            "Description",
             Style::default().add_modifier(Modifier::BOLD),
         )),
     ];
 
-    frame.render_widget(Paragraph::new(lines), area);
+    let desc_lines: Vec<Line> = if pr.body.is_empty() {
+        vec![Line::from(Span::styled(
+            "  No description provided.",
+            Style::default().fg(theme::COLOR_NONE),
+        ))]
+    } else {
+        pr.body
+            .lines()
+            .map(|l| Line::from(format!("  {l}")))
+            .collect()
+    };
+
+    let all_lines: Vec<Line> = lines.into_iter().chain(desc_lines).collect();
+    frame.render_widget(Paragraph::new(all_lines), area);
 }
 
 fn render_approval(frame: &mut ratatui::Frame, area: Rect, pr: &PullRequestSnapshot) {
@@ -172,7 +184,7 @@ fn render_comments(
 ) {
     let block = Block::default().borders(Borders::TOP).title(" Comments ");
 
-    if pr.comments.is_empty() && pr.body.is_empty() {
+    if pr.comments.is_empty() {
         frame.render_widget(
             Paragraph::new(" No comments.")
                 .block(block)
@@ -183,17 +195,6 @@ fn render_comments(
     }
 
     let mut items: Vec<Line> = Vec::new();
-
-    if !pr.body.is_empty() {
-        items.push(Line::from(Span::styled(
-            "Description",
-            Style::default().add_modifier(Modifier::BOLD),
-        )));
-        for line in pr.body.lines() {
-            items.push(Line::from(format!("  {line}")));
-        }
-        items.push(Line::from(""));
-    }
 
     for comment in &pr.comments {
         items.push(Line::from(vec![
