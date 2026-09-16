@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "Personal GitHub dashboard in your terminal"
 license = "MIT OR Apache-2.0"
-rust-version = "1.85"
+rust-version = "1.88"
 
 [dependencies]
 ratatui = { version = "0.29", features = ["crossterm"] }

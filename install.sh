@@ -51,8 +51,8 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         *)
-            echo -e "${ORANGE}Warning: Unknown option '$1'${NC}" >&2
-            shift
+            echo -e "${RED}Error: Unknown option '$1'${NC}" >&2
+            exit 1
             ;;
     esac
 done
@@ -91,6 +91,26 @@ if [ "$os" = "windows" ]; then
     archive_ext=".zip"
 fi
 
+# Check dependencies before any network calls
+if ! command -v curl >/dev/null 2>&1; then
+    echo -e "${RED}Error: 'curl' is required but not installed.${NC}"
+    exit 1
+fi
+
+if [ "$os" = "linux" ] || [ "$os" = "darwin" ]; then
+    if ! command -v tar >/dev/null 2>&1; then
+        echo -e "${RED}Error: 'tar' is required but not installed.${NC}"
+        exit 1
+    fi
+fi
+
+if [ "$os" = "windows" ]; then
+    if ! command -v unzip >/dev/null 2>&1; then
+        echo -e "${RED}Error: 'unzip' is required but not installed.${NC}"
+        exit 1
+    fi
+fi
+
 # Resolve version and download URL
 if [ -z "$requested_version" ]; then
     version=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | sed -n 's/.*"tag_name": *"v\([^"]*\)".*/\1/p')
@@ -113,25 +133,6 @@ echo -e "${MUTED}Platform: ${NC}${os}/${arch} ${MUTED}→ ${NC}${target}"
 # Download
 tmp_dir=$(mktemp -d)
 trap 'rm -rf "$tmp_dir"' EXIT
-
-if ! command -v curl >/dev/null 2>&1; then
-    echo -e "${RED}Error: 'curl' is required but not installed.${NC}"
-    exit 1
-fi
-
-if [ "$os" = "linux" ] || [ "$os" = "darwin" ]; then
-    if ! command -v tar >/dev/null 2>&1; then
-        echo -e "${RED}Error: 'tar' is required but not installed.${NC}"
-        exit 1
-    fi
-fi
-
-if [ "$os" = "windows" ]; then
-    if ! command -v unzip >/dev/null 2>&1; then
-        echo -e "${RED}Error: 'unzip' is required but not installed.${NC}"
-        exit 1
-    fi
-fi
 
 echo -e "${MUTED}Downloading: ${NC}${url}"
 curl -fsSL -o "$tmp_dir/$filename" "$url"
@@ -161,7 +162,7 @@ if [[ ":$PATH:" == *":$INSTALL_DIR:"* ]]; then
 else
     # Add to shell config
     if [[ "$no_modify_path" != "true" ]]; then
-        current_shell=$(basename "$SHELL")
+        current_shell=$(basename "${SHELL:-sh}")
         case "$current_shell" in
             fish)
                 config_file="$HOME/.config/fish/config.fish"
@@ -206,6 +207,20 @@ fi
 echo ""
 echo -e "${MUTED}Git happens. Now you can see it.${NC}"
 echo ""
+if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]] && [[ "$no_modify_path" != "true" ]]; then
+    echo -e "${ORANGE}Note:${NC} \$PATH updated for new shells only."
+    echo -e "${MUTED}Run this now, or open a new terminal:${NC}"
+    current_shell=$(basename "${SHELL:-sh}")
+    case "$current_shell" in
+        fish)
+            echo -e "  fish_add_path $INSTALL_DIR"
+            ;;
+        *)
+            echo -e "  export PATH=\"$INSTALL_DIR:\$PATH\""
+            ;;
+    esac
+    echo ""
+fi
 echo -e "${MUTED}To get started:${NC}"
 echo -e "  export GIT_TOKEN=<your-github-token>"
 echo -e "  ${APP}"
