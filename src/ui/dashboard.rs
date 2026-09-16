@@ -89,15 +89,15 @@ fn render_table(frame: &mut ratatui::Frame, area: Rect, app: &App) {
         return;
     }
 
-    let header_cells = [
-        "",
-        "#",
-        "Title",
-        "Diff",
-        "Checks",
-        "Approval",
-        "Up-to-date",
-        "Age",
+    let header_cells: Vec<Line> = vec![
+        Line::from(""),
+        Line::from("#"),
+        Line::from("Title"),
+        Line::from("Diff"),
+        Line::from("Checks"),
+        Line::from("Approval"),
+        Line::from("Up-to-date"),
+        Line::from("Age"),
     ];
     let header = Row::new(header_cells).style(Style::default().fg(theme::COLOR_HEADER));
 
@@ -109,7 +109,7 @@ fn render_table(frame: &mut ratatui::Frame, area: Rect, app: &App) {
             let readiness = assess(pr);
             let (glyph, color) = theme::merge_glyph_and_color(&readiness);
             let counts = count_checks(&pr.checks);
-            let checks_str = render_counts(&counts);
+            let checks_spans = render_checks_spans(&counts);
             let approval = collapse_reviews(&pr.reviews);
             let (rev_glyph, rev_color) = theme::approval_glyph_and_color(&approval);
             let (utd_glyph, utd_color) = theme::up_to_date_glyph_and_color(&pr.up_to_date);
@@ -153,7 +153,7 @@ fn render_table(frame: &mut ratatui::Frame, area: Rect, app: &App) {
                 Line::from(pr.number.to_string()),
                 Line::from(title),
                 Line::from(diff_spans),
-                Line::from(checks_str),
+                checks_spans,
                 Line::from(format!(" {rev_glyph}")).style(Style::default().fg(rev_color)),
                 Line::from(format!(" {utd_glyph}")).style(Style::default().fg(utd_color)),
                 Line::from(age_str),
@@ -238,6 +238,44 @@ fn render_footer(frame: &mut ratatui::Frame, area: Rect, app: &App) {
     );
 
     frame.render_widget(paragraph, area);
+}
+
+fn render_checks_spans(counts: &WorkflowCounts) -> Line<'static> {
+    if counts.total == 0 {
+        return Line::from("–/–");
+    }
+
+    let cap = |n: usize| -> String {
+        if n > 99 {
+            "99+".to_string()
+        } else {
+            n.to_string()
+        }
+    };
+
+    Line::from(vec![
+        Span::styled(cap(counts.success), Style::default().fg(theme::COLOR_READY)),
+        Span::raw("/"),
+        Span::styled(
+            cap(counts.failed),
+            if counts.failed > 0 {
+                Style::default().fg(theme::COLOR_FAILED)
+            } else {
+                Style::default()
+            },
+        ),
+        Span::raw("/"),
+        Span::styled(
+            cap(counts.running),
+            if counts.running > 0 {
+                Style::default().fg(theme::COLOR_WAITING)
+            } else {
+                Style::default()
+            },
+        ),
+        Span::raw("/"),
+        Span::styled(cap(counts.skipped), Style::default().fg(theme::COLOR_NONE)),
+    ])
 }
 
 pub fn render_counts_string(counts: &WorkflowCounts) -> String {
@@ -333,6 +371,10 @@ mod tests {
         let counts = WorkflowCounts {
             completed: 0,
             total: 0,
+            success: 0,
+            failed: 0,
+            running: 0,
+            skipped: 0,
         };
         assert_eq!(render_counts_string(&counts), "–/–");
     }
@@ -342,6 +384,10 @@ mod tests {
         let counts = WorkflowCounts {
             completed: 5,
             total: 7,
+            success: 5,
+            failed: 0,
+            running: 0,
+            skipped: 0,
         };
         assert_eq!(render_counts_string(&counts), "5/7");
     }
@@ -351,6 +397,10 @@ mod tests {
         let counts = WorkflowCounts {
             completed: 100,
             total: 100,
+            success: 100,
+            failed: 0,
+            running: 0,
+            skipped: 0,
         };
         assert_eq!(render_counts_string(&counts), "99+/99+");
     }
@@ -384,6 +434,8 @@ mod tests {
                     kind: crate::github::pr::CheckKind::CheckRun,
                     completed: true,
                     failed: false,
+                    skipped: false,
+                    running: false,
                 }],
                 reviews: vec![ReviewSnapshot {
                     author: "alice".to_string(),

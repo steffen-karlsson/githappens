@@ -850,6 +850,8 @@ mod tests {
                     kind: crate::github::pr::CheckKind::CheckRun,
                     completed: true,
                     failed: false,
+                    skipped: false,
+                    running: false,
                 }],
                 reviews: vec![crate::github::pr::ReviewSnapshot {
                     author: "a".to_string(),

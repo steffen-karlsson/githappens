@@ -84,6 +84,8 @@ mod tests {
                 kind: CheckKind::CheckRun,
                 completed: true,
                 failed: false,
+                skipped: false,
+                running: false,
             }],
             reviews: vec![ReviewSnapshot {
                 author: "alice".to_string(),
@@ -159,6 +161,8 @@ mod tests {
             kind: CheckKind::CheckRun,
             completed: false,
             failed: false,
+            skipped: false,
+            running: false,
         }];
         assert_eq!(assess(&pr), MergeReadiness::Waiting);
     }
@@ -171,6 +175,8 @@ mod tests {
             kind: CheckKind::CheckRun,
             completed: true,
             failed: true,
+            skipped: false,
+            running: false,
         }];
         assert_eq!(assess(&pr), MergeReadiness::Failed);
     }
@@ -192,12 +198,16 @@ mod tests {
                 kind: CheckKind::CheckRun,
                 completed: true,
                 failed: true,
+                skipped: false,
+                running: false,
             },
             CheckSnapshot {
                 name: "Lint".to_string(),
                 kind: CheckKind::CheckRun,
                 completed: false,
                 failed: false,
+                skipped: false,
+                running: false,
             },
         ];
         assert_eq!(assess(&pr), MergeReadiness::Failed);
@@ -211,6 +221,8 @@ mod tests {
             kind: CheckKind::CheckRun,
             completed: false,
             failed: false,
+            skipped: false,
+            running: false,
         }];
         pr.reviews = vec![ReviewSnapshot {
             author: "bob".to_string(),
@@ -227,6 +239,8 @@ mod tests {
             kind: CheckKind::CheckRun,
             completed: false,
             failed: false,
+            skipped: false,
+            running: false,
         }];
         pr.reviews = vec![];
         assert_eq!(assess(&pr), MergeReadiness::Waiting);

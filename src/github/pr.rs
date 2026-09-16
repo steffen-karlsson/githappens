@@ -33,6 +33,8 @@ pub struct CheckSnapshot {
     pub kind: CheckKind,
     pub completed: bool,
     pub failed: bool,
+    pub skipped: bool,
+    pub running: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -90,28 +92,56 @@ pub fn from_dto(node: &PullRequestNode) -> PullRequestSnapshot {
 
 fn check_from_context(ctx: &CheckContext) -> CheckSnapshot {
     match ctx {
-        CheckContext::CheckRun(cr) => CheckSnapshot {
-            name: cr.name.clone(),
-            kind: CheckKind::CheckRun,
-            completed: cr.status == Some(CheckRunStatus::Completed),
-            failed: matches!(
+        CheckContext::CheckRun(cr) => {
+            let completed = cr.status == Some(CheckRunStatus::Completed);
+            let failed = matches!(
                 cr.conclusion,
                 Some(
                     CheckRunConclusion::Failure
                         | CheckRunConclusion::TimedOut
                         | CheckRunConclusion::Cancelled
                 )
-            ),
-        },
-        CheckContext::StatusContext(sc) => CheckSnapshot {
-            name: sc.context.clone(),
-            kind: CheckKind::StatusContext,
-            completed: matches!(
+            );
+            let skipped = matches!(
+                cr.conclusion,
+                Some(CheckRunConclusion::Skipped | CheckRunConclusion::Neutral)
+            );
+            let running = !completed
+                && matches!(
+                    cr.status,
+                    Some(
+                        CheckRunStatus::InProgress
+                            | CheckRunStatus::Queued
+                            | CheckRunStatus::Pending
+                            | CheckRunStatus::Requested
+                    )
+                );
+            CheckSnapshot {
+                name: cr.name.clone(),
+                kind: CheckKind::CheckRun,
+                completed,
+                failed,
+                skipped,
+                running,
+            }
+        }
+        CheckContext::StatusContext(sc) => {
+            let completed = matches!(
                 sc.state,
                 StatusState::Success | StatusState::Error | StatusState::Failure
-            ),
-            failed: matches!(sc.state, StatusState::Error | StatusState::Failure),
-        },
+            );
+            let failed = matches!(sc.state, StatusState::Error | StatusState::Failure);
+            let skipped = false;
+            let running = matches!(sc.state, StatusState::Pending);
+            CheckSnapshot {
+                name: sc.context.clone(),
+                kind: CheckKind::StatusContext,
+                completed,
+                failed,
+                skipped,
+                running,
+            }
+        }
     }
 }
 
