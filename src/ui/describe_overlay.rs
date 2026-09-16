@@ -48,6 +48,7 @@ fn render_details(frame: &mut ratatui::Frame, area: Rect, pr: &PullRequestSnapsh
     let readiness = assess(pr);
     let (glyph, color) = theme::merge_glyph_and_color(&readiness);
     let counts = count_checks(&pr.checks);
+    let approval = collapse_reviews(&pr.reviews);
 
     let lines = vec![
         Line::from(vec![
@@ -69,8 +70,8 @@ fn render_details(frame: &mut ratatui::Frame, area: Rect, pr: &PullRequestSnapsh
             Span::styled("Status: ", Style::default().add_modifier(Modifier::BOLD)),
             Span::styled(format!("{:?}", readiness), Style::default().fg(color)),
             Span::raw(format!(
-                "  ·  Checks: {}/{}/{}/{}",
-                counts.success, counts.failed, counts.running, counts.skipped
+                "  ·  Checks: {}/{}/{}/{}  ·  Approval: {:?}",
+                counts.success, counts.failed, counts.running, counts.skipped, approval
             )),
         ]),
         Line::from(""),
@@ -97,40 +98,41 @@ fn render_details(frame: &mut ratatui::Frame, area: Rect, pr: &PullRequestSnapsh
 }
 
 fn render_approval(frame: &mut ratatui::Frame, area: Rect, pr: &PullRequestSnapshot) {
-    let approval = collapse_reviews(&pr.reviews);
-    let (glyph, color) = theme::approval_glyph_and_color(&approval);
+    if pr.reviews.is_empty() {
+        frame.render_widget(
+            Paragraph::new(" No reviews.").style(Style::default().fg(theme::COLOR_NONE)),
+            area,
+        );
+        return;
+    }
 
-    let mut lines = vec![Line::from(vec![
-        Span::styled("Approval: ", Style::default().add_modifier(Modifier::BOLD)),
-        Span::styled(format!("{glyph} "), Style::default().fg(color)),
-        Span::raw(format!("{:?}", approval)),
-    ])];
+    let mut lines = vec![Line::from(Span::styled(
+        "Reviews:",
+        Style::default().add_modifier(Modifier::BOLD),
+    ))];
 
-    if !pr.reviews.is_empty() {
-        lines.push(Line::from(""));
-        for review in &pr.reviews {
-            let state_color = match review.state {
-                crate::github::models::ReviewState::Approved => theme::COLOR_READY,
-                crate::github::models::ReviewState::ChangesRequested => theme::COLOR_FAILED,
-                _ => theme::COLOR_NONE,
-            };
-            lines.push(Line::from(vec![
-                Span::styled(
-                    format!("  {:?} ", review.state),
-                    Style::default().fg(state_color),
-                ),
-                Span::styled(
-                    review.author.clone(),
-                    Style::default().add_modifier(Modifier::BOLD),
-                ),
-            ]));
-            if !review.body.is_empty() {
-                let body_preview: String = review.body.chars().take(120).collect();
-                lines.push(Line::from(Span::styled(
-                    format!("    {}", body_preview),
-                    Style::default().fg(theme::COLOR_NONE),
-                )));
-            }
+    for review in &pr.reviews {
+        let state_color = match review.state {
+            crate::github::models::ReviewState::Approved => theme::COLOR_READY,
+            crate::github::models::ReviewState::ChangesRequested => theme::COLOR_FAILED,
+            _ => theme::COLOR_NONE,
+        };
+        lines.push(Line::from(vec![
+            Span::styled(
+                format!("  {:?} ", review.state),
+                Style::default().fg(state_color),
+            ),
+            Span::styled(
+                review.author.clone(),
+                Style::default().add_modifier(Modifier::BOLD),
+            ),
+        ]));
+        if !review.body.is_empty() {
+            let body_preview: String = review.body.chars().take(120).collect();
+            lines.push(Line::from(Span::styled(
+                format!("    {}", body_preview),
+                Style::default().fg(theme::COLOR_NONE),
+            )));
         }
     }
 
