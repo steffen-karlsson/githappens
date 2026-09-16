@@ -1008,8 +1008,7 @@ mod tests {
                     status: crate::github::pr::CheckStatus::Success,
                     started_at: None,
                     completed_at: None,
-                    output_text: None,
-                    output_summary: None,
+                    annotations: vec![],
                 }],
                 reviews: vec![crate::github::pr::ReviewSnapshot {
                     author: "a".to_string(),

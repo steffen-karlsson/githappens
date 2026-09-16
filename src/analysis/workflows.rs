@@ -74,8 +74,7 @@ mod tests {
             status,
             started_at: None,
             completed_at: None,
-            output_text: None,
-            output_summary: None,
+            annotations: vec![],
         }
     }
 
@@ -135,8 +134,7 @@ mod tests {
                 status: CheckStatus::Success,
                 started_at: None,
                 completed_at: None,
-                output_text: None,
-                output_summary: None,
+                annotations: vec![],
             },
             CheckSnapshot {
                 name: "travis".to_string(),
@@ -144,8 +142,7 @@ mod tests {
                 status: CheckStatus::Success,
                 started_at: None,
                 completed_at: None,
-                output_text: None,
-                output_summary: None,
+                annotations: vec![],
             },
         ];
         let c = count_checks(&checks);
@@ -160,8 +157,7 @@ mod tests {
             status: CheckStatus::Running,
             started_at: None,
             completed_at: None,
-            output_text: None,
-            output_summary: None,
+            annotations: vec![],
         }];
         let c = count_checks(&checks);
         assert_eq!(c.completed, 0);
@@ -176,8 +172,7 @@ mod tests {
             status: CheckStatus::Running,
             started_at: None,
             completed_at: None,
-            output_text: None,
-            output_summary: None,
+            annotations: vec![],
         }];
         let c = count_checks(&checks);
         assert_eq!(c.completed, 0);

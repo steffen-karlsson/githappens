@@ -44,8 +44,7 @@ pub struct CheckSnapshot {
     pub status: CheckStatus,
     pub started_at: Option<String>,
     pub completed_at: Option<String>,
-    pub output_text: Option<String>,
-    pub output_summary: Option<String>,
+    pub annotations: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -170,8 +169,21 @@ fn check_from_context(ctx: &CheckContext) -> CheckSnapshot {
                 status,
                 started_at: cr.started_at.clone(),
                 completed_at: cr.completed_at.clone(),
-                output_text: cr.text.clone(),
-                output_summary: cr.summary.clone(),
+                annotations: cr
+                    .annotations
+                    .as_ref()
+                    .map(|a| {
+                        a.nodes
+                            .iter()
+                            .map(|n| {
+                                n.path
+                                    .as_deref()
+                                    .map(|p| format!("{}: {}", p, n.message))
+                                    .unwrap_or_else(|| n.message.clone())
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default(),
             }
         }
         CheckContext::StatusContext(sc) => {
@@ -190,8 +202,11 @@ fn check_from_context(ctx: &CheckContext) -> CheckSnapshot {
                 status,
                 started_at: sc.created_at.clone(),
                 completed_at: None,
-                output_text: sc.description.clone(),
-                output_summary: None,
+                annotations: sc
+                    .description
+                    .as_ref()
+                    .map(|d| vec![d.clone()])
+                    .unwrap_or_default(),
             }
         }
     }

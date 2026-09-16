@@ -153,9 +153,21 @@ pub struct CheckRun {
     #[serde(default)]
     pub completed_at: Option<String>,
     #[serde(default)]
-    pub summary: Option<String>,
+    pub annotations: Option<AnnotationConnection>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AnnotationConnection {
+    pub nodes: Vec<AnnotationNode>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnnotationNode {
     #[serde(default)]
-    pub text: Option<String>,
+    pub message: String,
+    #[serde(default)]
+    pub path: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]

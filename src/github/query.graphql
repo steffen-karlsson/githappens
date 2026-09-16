@@ -36,6 +36,12 @@ query OpenPRs($first: Int!, $after: String) {
                       completedAt
                       summary
                       text
+                      annotations(first: 10) {
+                        nodes {
+                          message
+                          path
+                        }
+                      }
                     }
                     ... on StatusContext {
                       context

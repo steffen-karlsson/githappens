@@ -92,16 +92,16 @@ fn render_description_container(
     focused: bool,
     app: &App,
 ) {
-    let style = if focused {
+    let focus_style = if focused {
         Style::default().fg(theme::COLOR_HEADER)
     } else {
-        Style::default().fg(theme::COLOR_NONE)
+        Style::default()
     };
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(style)
-        .title(Span::styled("Description", style));
+        .border_style(focus_style)
+        .title(Span::styled("Description", focus_style));
     frame.render_widget(block, area);
 
     let inner = Rect {
@@ -142,17 +142,17 @@ fn render_checks_container(
     focused: bool,
     app: &App,
 ) {
-    let border_style = if focused {
+    let focus_style = if focused {
         Style::default().fg(theme::COLOR_HEADER)
     } else {
-        Style::default().fg(theme::COLOR_NONE)
+        Style::default()
     };
 
     let total = pr.checks.len();
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(border_style)
-        .title(Span::styled("Checks", border_style));
+        .border_style(focus_style)
+        .title(Span::styled("Checks", focus_style));
     frame.render_widget(block, area);
 
     let inner = Rect {
@@ -256,10 +256,10 @@ fn render_activity_container(
     focused: bool,
     app: &App,
 ) {
-    let border_style = if focused {
+    let focus_style = if focused {
         Style::default().fg(theme::COLOR_HEADER)
     } else {
-        Style::default().fg(theme::COLOR_NONE)
+        Style::default()
     };
 
     let entries = components::build_activity_entries(&pr.reviews, &pr.comments);
@@ -267,8 +267,8 @@ fn render_activity_container(
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(border_style)
-        .title(Span::styled("Activity", border_style));
+        .border_style(focus_style)
+        .title(Span::styled("Activity", focus_style));
     frame.render_widget(block, area);
 
     let inner = Rect {
@@ -402,12 +402,12 @@ fn render_subview(
         }
         DescribeSubView::CheckDetail { index } => {
             if let Some(check) = pr.checks.get(*index) {
-                let content = check
-                    .output_text
-                    .as_deref()
-                    .or(check.output_summary.as_deref())
-                    .unwrap_or("No output available.");
-                (check.name.clone(), content.to_string())
+                let content = if check.annotations.is_empty() {
+                    "No logs available.".to_string()
+                } else {
+                    check.annotations.join("\n\n")
+                };
+                (check.name.clone(), content)
             } else {
                 ("Check".to_string(), "Check not found.".to_string())
             }
@@ -416,11 +416,7 @@ fn render_subview(
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(theme::COLOR_NONE))
-        .title(Span::styled(
-            format!(" {} ", title),
-            Style::default().fg(theme::COLOR_NONE),
-        ));
+        .title(format!(" {} ", title));
     frame.render_widget(block, popup);
 
     let inner = Rect {
