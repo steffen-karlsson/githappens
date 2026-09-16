@@ -233,7 +233,7 @@ fn render_footer(frame: &mut ratatui::Frame, area: Rect, app: &App) {
 
     let chunks = Layout::horizontal([
         Constraint::Min(1),
-        Constraint::Length(theme::FOOTER_HINT.len() as u16),
+        Constraint::Length(theme::FOOTER_HINT.chars().count() as u16),
     ])
     .split(area);
 
