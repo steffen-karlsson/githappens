@@ -194,19 +194,32 @@ impl HttpGitHubFetcher {
         let resp: GraphQLResponse =
             serde_json::from_str(&text).map_err(|e| FetchError::Parse(e.to_string()))?;
 
+        let data = match resp.data {
+            Some(d) => d,
+            None => {
+                if let Some(errors) = resp.errors {
+                    return Err(FetchError::GraphQLErrors(
+                        errors
+                            .iter()
+                            .map(|e| e.message.clone())
+                            .collect::<Vec<_>>()
+                            .join("; "),
+                    ));
+                }
+                return Err(FetchError::Parse("missing data field".to_string()));
+            }
+        };
+
         if let Some(errors) = resp.errors {
-            return Err(FetchError::GraphQLErrors(
+            tracing::warn!(
+                "GraphQL partial errors: {}",
                 errors
                     .iter()
                     .map(|e| e.message.clone())
                     .collect::<Vec<_>>()
-                    .join("; "),
-            ));
+                    .join("; ")
+            );
         }
-
-        let data = resp
-            .data
-            .ok_or_else(|| FetchError::Parse("missing data field".to_string()))?;
 
         let login = data.viewer.login;
         let prs: Vec<PullRequestNode> = data
