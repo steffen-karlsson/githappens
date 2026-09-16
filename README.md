@@ -22,11 +22,21 @@ A personal, terminal-native GitHub dashboard built in Rust with [`ratatui`](http
 
 ## Install
 
+### One-liner (recommended)
+
 ```sh
-cargo install githappens
+curl -fsSL https://raw.githubusercontent.com/steffen-karlsson/githappens/main/install.sh | bash
 ```
 
-Or build from source:
+This auto-detects your OS and architecture, downloads the latest release, installs the binary to `~/.githappens/bin`, and adds it to your `$PATH`.
+
+Install a specific version:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/steffen-karlsson/githappens/main/install.sh | bash -s -- --version 0.1.0
+```
+
+### From source
 
 ```sh
 git clone https://github.com/steffen-karlsson/githappens.git
