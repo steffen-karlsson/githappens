@@ -426,8 +426,19 @@ fn render_subview(
         height: popup.height.saturating_sub(2),
     };
 
+    let is_placeholder = content == "No logs available."
+        || content == "No description provided."
+        || content == "Check not found.";
+
     let wrapped = components::wrap_text(&content, inner.width as usize);
-    let lines: Vec<Line> = wrapped.into_iter().map(Line::from).collect();
+    let lines: Vec<Line> = if is_placeholder {
+        wrapped
+            .into_iter()
+            .map(|l| Line::from(Span::styled(l, Style::default().fg(theme::COLOR_NONE))))
+            .collect()
+    } else {
+        wrapped.into_iter().map(Line::from).collect()
+    };
 
     let scroll = app.describe_subview_scroll;
     let max_scroll = lines.len().saturating_sub(inner.height as usize);
