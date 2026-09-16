@@ -37,9 +37,23 @@ pub fn render(frame: &mut ratatui::Frame, area: Rect, app: &App) {
     };
     let details_height = 3u16 + desc_line_count as u16 + 1; // status + blank + header + desc + blank
 
+    let reviews_height = if pr.reviews.is_empty() {
+        1
+    } else {
+        let mut h = 1u16; // "Reviews:" header
+        for review in &pr.reviews {
+            h += 1; // state + author line
+            if !review.body.is_empty() {
+                let line_count = strip_markdown(&review.body).lines().count().min(3) as u16;
+                h += line_count;
+            }
+        }
+        h + 1 // trailing blank
+    };
+
     let chunks = Layout::vertical([
         Constraint::Length(details_height),
-        Constraint::Length(4),
+        Constraint::Length(reviews_height),
         Constraint::Length(pr.checks.len() as u16 + 3),
         Constraint::Min(1),
     ])
