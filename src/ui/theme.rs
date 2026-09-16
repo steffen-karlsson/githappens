@@ -8,10 +8,10 @@ pub const GLYPH_PENDING: &str = "●";
 pub const GLYPH_NONE: &str = "○";
 pub const GLYPH_CHANGES_REQUESTED: &str = "●";
 
-pub const COLOR_READY: Color = Color::Green;
+pub const COLOR_READY: Color = Color::Rgb(46, 204, 113);
 pub const COLOR_WAITING: Color = Color::Yellow;
 pub const COLOR_FAILED: Color = Color::Red;
-pub const COLOR_APPROVED: Color = Color::Green;
+pub const COLOR_APPROVED: Color = Color::Rgb(46, 204, 113);
 pub const COLOR_CHANGES_REQUESTED: Color = Color::Red;
 pub const COLOR_PENDING: Color = Color::Yellow;
 pub const COLOR_NONE: Color = Color::DarkGray;

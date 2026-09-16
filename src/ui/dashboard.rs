@@ -115,16 +115,24 @@ fn render_table(frame: &mut ratatui::Frame, area: Rect, app: &App) {
             let (utd_glyph, utd_color) = theme::up_to_date_glyph_and_color(&pr.up_to_date);
             let diff_spans = vec![
                 Span::styled(
-                    format!("+{}", pr.additions),
                     if pr.additions > 0 {
-                        Style::default().fg(Color::Green)
+                        format!("+{}", pr.additions)
+                    } else {
+                        "0".to_string()
+                    },
+                    if pr.additions > 0 {
+                        Style::default().fg(theme::COLOR_READY)
                     } else {
                         Style::default()
                     },
                 ),
                 Span::raw("/"),
                 Span::styled(
-                    format!("-{}", pr.deletions),
+                    if pr.deletions > 0 {
+                        format!("-{}", pr.deletions)
+                    } else {
+                        "0".to_string()
+                    },
                     if pr.deletions > 0 {
                         Style::default().fg(Color::Red)
                     } else {
