@@ -84,7 +84,11 @@ fn render_details(frame: &mut ratatui::Frame, area: Rect, pr: &PullRequestSnapsh
             .collect()
     };
 
-    let all_lines: Vec<Line> = lines.into_iter().chain(desc_lines).collect();
+    let all_lines: Vec<Line> = lines
+        .into_iter()
+        .chain(desc_lines)
+        .chain(std::iter::once(Line::from("")))
+        .collect();
     frame.render_widget(Paragraph::new(all_lines), area);
 }
 
@@ -103,27 +107,30 @@ fn render_approval(frame: &mut ratatui::Frame, area: Rect, pr: &PullRequestSnaps
     ))];
 
     for review in &pr.reviews {
-        let state_color = match review.state {
-            crate::github::models::ReviewState::Approved => theme::COLOR_READY,
-            crate::github::models::ReviewState::ChangesRequested => theme::COLOR_FAILED,
-            _ => theme::COLOR_NONE,
+        let (state_icon, state_color) = match review.state {
+            crate::github::models::ReviewState::Approved => ("✓", theme::COLOR_READY),
+            crate::github::models::ReviewState::ChangesRequested => ("✗", theme::COLOR_FAILED),
+            _ => ("•", theme::COLOR_NONE),
         };
         lines.push(Line::from(vec![
-            Span::styled(
-                format!("  {:?} ", review.state),
-                Style::default().fg(state_color),
-            ),
+            Span::styled(format!("  {state_icon} "), Style::default().fg(state_color)),
             Span::styled(
                 review.author.clone(),
                 Style::default().add_modifier(Modifier::BOLD),
             ),
+            Span::styled(
+                format!(" — {:?}", review.state),
+                Style::default().fg(state_color),
+            ),
         ]));
         if !review.body.is_empty() {
-            let body_preview: String = review.body.chars().take(120).collect();
-            lines.push(Line::from(Span::styled(
-                format!("    {}", body_preview),
-                Style::default().fg(theme::COLOR_NONE),
-            )));
+            let cleaned = strip_markdown(&review.body);
+            for body_line in cleaned.lines().take(3) {
+                lines.push(Line::from(Span::styled(
+                    format!("    {}", body_line),
+                    Style::default().fg(theme::COLOR_NONE),
+                )));
+            }
         }
     }
 
@@ -232,4 +239,29 @@ fn centered(area: Rect, width_pct: u16, height_pct: u16) -> Rect {
         Constraint::Percentage((100 - width_pct) / 2),
     ])
     .split(popup[1])[1]
+}
+
+fn strip_markdown(text: &str) -> String {
+    let mut result = String::new();
+    let mut in_html_tag = false;
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("<!--") || trimmed.ends_with("-->") {
+            continue;
+        }
+        for ch in trimmed.chars() {
+            if ch == '<' {
+                in_html_tag = true;
+            }
+            if !in_html_tag {
+                result.push(ch);
+            }
+            if ch == '>' {
+                in_html_tag = false;
+            }
+        }
+        result.push('\n');
+    }
+    let result = result.replace("###", "").replace("**", "").replace("#", "");
+    result.trim().to_string()
 }
