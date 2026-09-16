@@ -59,7 +59,7 @@ pub fn up_to_date_glyph_and_color(
 ) -> (&'static str, Color) {
     use crate::github::pr::UpToDateState;
     match state {
-        UpToDateState::UpToDate => ("●", Color::Green),
+        UpToDateState::UpToDate => ("●", COLOR_READY),
         UpToDateState::OutOfDate => ("●", Color::Red),
         UpToDateState::Unknown => ("○", Color::DarkGray),
     }
@@ -125,7 +125,7 @@ mod tests {
     fn up_to_date_glyph_up_to_date() {
         let (g, c) = up_to_date_glyph_and_color(&UpToDateState::UpToDate);
         assert_eq!(g, "●");
-        assert_eq!(c, Color::Green);
+        assert_eq!(c, COLOR_READY);
     }
 
     #[test]
