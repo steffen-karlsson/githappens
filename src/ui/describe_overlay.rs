@@ -30,8 +30,15 @@ pub fn render(frame: &mut ratatui::Frame, area: Rect, app: &App) {
         height: popup.height.saturating_sub(2),
     };
 
+    let desc_line_count = if pr.body.is_empty() {
+        1
+    } else {
+        strip_markdown(&pr.body).lines().count().max(1)
+    };
+    let details_height = 3u16 + desc_line_count as u16 + 1; // status + blank + header + desc + blank
+
     let chunks = Layout::vertical([
-        Constraint::Length(4),
+        Constraint::Length(details_height),
         Constraint::Length(4),
         Constraint::Length(pr.checks.len() as u16 + 3),
         Constraint::Min(1),
@@ -51,20 +58,18 @@ fn render_details(frame: &mut ratatui::Frame, area: Rect, pr: &PullRequestSnapsh
     let approval = collapse_reviews(&pr.reviews);
 
     let lines = vec![
-        Line::from(vec![
-            Span::styled("Status: ", Style::default().add_modifier(Modifier::BOLD)),
-            Span::styled(format!("{:?}", readiness), Style::default().fg(color)),
-            Span::raw(format!(
-                "  ·  Diff: +{}/{}  ·  Checks: {}/{}/{}/{}  ·  Approval: {:?}",
-                pr.additions,
-                pr.deletions,
-                counts.success,
-                counts.failed,
-                counts.running,
-                counts.skipped,
-                approval
-            )),
-        ]),
+        Line::from({
+            let mut spans = vec![
+                Span::styled("Status: ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::styled(format!("{:?}", readiness), Style::default().fg(color)),
+                Span::raw("  ·  Diff: "),
+            ];
+            spans.extend(theme::diff_spans(pr.additions, pr.deletions));
+            spans.push(Span::raw("  ·  Checks: "));
+            spans.extend(theme::checks_spans(&counts));
+            spans.push(Span::raw(format!("  ·  Approval: {:?}", approval)));
+            spans
+        }),
         Line::from(""),
         Line::from(Span::styled(
             "Description",

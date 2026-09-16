@@ -1,6 +1,6 @@
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
-use ratatui::text::{Line, Span};
+use ratatui::style::{Modifier, Style};
+use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Paragraph, Row, Table};
 
 use chrono::{DateTime, Utc};
@@ -114,37 +114,11 @@ fn render_table(frame: &mut ratatui::Frame, area: Rect, app: &App) {
             let readiness = assess(pr);
             let (glyph, color) = theme::merge_glyph_and_color(&readiness);
             let counts = count_checks(&pr.checks);
-            let checks_spans = render_checks_spans(&counts);
+            let checks_spans = Line::from(theme::checks_spans(&counts));
             let approval = collapse_reviews(&pr.reviews);
             let (rev_glyph, rev_color) = theme::approval_glyph_and_color(&approval);
             let (utd_glyph, utd_color) = theme::up_to_date_glyph_and_color(&pr.up_to_date);
-            let diff_spans = vec![
-                Span::styled(
-                    if pr.additions > 0 {
-                        format!("+{}", pr.additions)
-                    } else {
-                        "0".to_string()
-                    },
-                    if pr.additions > 0 {
-                        Style::default().fg(theme::COLOR_READY)
-                    } else {
-                        Style::default()
-                    },
-                ),
-                Span::raw("/"),
-                Span::styled(
-                    if pr.deletions > 0 {
-                        format!("-{}", pr.deletions)
-                    } else {
-                        "0".to_string()
-                    },
-                    if pr.deletions > 0 {
-                        Style::default().fg(Color::Red)
-                    } else {
-                        Style::default()
-                    },
-                ),
-            ];
+            let diff_spans = Line::from(theme::diff_spans(pr.additions, pr.deletions));
             let age_str = format_age(&pr.created_at);
 
             let title = if pr.is_draft {
@@ -157,7 +131,7 @@ fn render_table(frame: &mut ratatui::Frame, area: Rect, app: &App) {
                 Line::from(format!(" {glyph}")).style(Style::default().fg(color)),
                 Line::from(pr.number.to_string()),
                 Line::from(title),
-                Line::from(diff_spans),
+                diff_spans,
                 checks_spans,
                 Line::from(format!(" {rev_glyph}")).style(Style::default().fg(rev_color)),
                 Line::from(format!(" {utd_glyph}")).style(Style::default().fg(utd_color)),
@@ -251,44 +225,6 @@ fn render_footer(frame: &mut ratatui::Frame, area: Rect, app: &App) {
 
     let right = Paragraph::new(theme::FOOTER_HINT).style(Style::default().fg(theme::COLOR_NONE));
     frame.render_widget(right, chunks[1]);
-}
-
-fn render_checks_spans(counts: &WorkflowCounts) -> Line<'static> {
-    if counts.total == 0 {
-        return Line::from("–/–");
-    }
-
-    let cap = |n: usize| -> String {
-        if n > 99 {
-            "99+".to_string()
-        } else {
-            n.to_string()
-        }
-    };
-
-    Line::from(vec![
-        Span::styled(cap(counts.success), Style::default().fg(theme::COLOR_READY)),
-        Span::raw("/"),
-        Span::styled(
-            cap(counts.failed),
-            if counts.failed > 0 {
-                Style::default().fg(theme::COLOR_FAILED)
-            } else {
-                Style::default()
-            },
-        ),
-        Span::raw("/"),
-        Span::styled(
-            cap(counts.running),
-            if counts.running > 0 {
-                Style::default().fg(theme::COLOR_WAITING)
-            } else {
-                Style::default()
-            },
-        ),
-        Span::raw("/"),
-        Span::styled(cap(counts.skipped), Style::default().fg(theme::COLOR_NONE)),
-    ])
 }
 
 pub fn render_counts_string(counts: &WorkflowCounts) -> String {

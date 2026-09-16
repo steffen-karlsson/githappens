@@ -1,4 +1,6 @@
 use ratatui::style::Color;
+use ratatui::style::Style;
+use ratatui::text::Span;
 
 pub const GLYPH_READY: &str = "●";
 pub const GLYPH_WAITING: &str = "●";
@@ -63,6 +65,74 @@ pub fn up_to_date_glyph_and_color(
         UpToDateState::OutOfDate => ("●", Color::Red),
         UpToDateState::Unknown => ("○", Color::DarkGray),
     }
+}
+
+pub fn diff_spans(additions: u32, deletions: u32) -> Vec<Span<'static>> {
+    vec![
+        Span::styled(
+            if additions > 0 {
+                format!("+{}", additions)
+            } else {
+                "0".to_string()
+            },
+            if additions > 0 {
+                Style::default().fg(COLOR_READY)
+            } else {
+                Style::default()
+            },
+        ),
+        Span::raw("/"),
+        Span::styled(
+            if deletions > 0 {
+                format!("-{}", deletions)
+            } else {
+                "0".to_string()
+            },
+            if deletions > 0 {
+                Style::default().fg(COLOR_FAILED)
+            } else {
+                Style::default()
+            },
+        ),
+    ]
+}
+
+pub fn checks_spans(counts: &crate::analysis::workflows::WorkflowCounts) -> Vec<Span<'static>> {
+    if counts.total == 0 {
+        return vec![Span::raw("–/–")];
+    }
+
+    let cap = |n: usize| -> String {
+        if n > 99 {
+            "99+".to_string()
+        } else {
+            n.to_string()
+        }
+    };
+
+    vec![
+        Span::styled(cap(counts.success), Style::default().fg(COLOR_READY)),
+        Span::raw("/"),
+        Span::styled(
+            cap(counts.failed),
+            if counts.failed > 0 {
+                Style::default().fg(COLOR_FAILED)
+            } else {
+                Style::default()
+            },
+        ),
+        Span::raw("/"),
+        Span::styled(
+            cap(counts.running),
+            if counts.running > 0 {
+                Style::default().fg(COLOR_WAITING)
+            } else {
+                Style::default()
+            },
+        ),
+        Span::raw("/"),
+        Span::styled(cap(counts.skipped), Style::default().fg(COLOR_NONE)),
+    ]
 }
 
 #[cfg(test)]
