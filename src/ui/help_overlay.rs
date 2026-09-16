@@ -15,6 +15,14 @@ pub fn render(frame: &mut ratatui::Frame, area: Rect) {
         Line::from("  G          Go to bottom"),
         Line::from("  Enter      Open PR in browser"),
         Line::from("  d          Describe PR (overlay with details)"),
+        Line::from(""),
+        Line::from("  Describe overlay:"),
+        Line::from("  Tab        Cycle focus between containers"),
+        Line::from("  j / Down   Scroll within focused container"),
+        Line::from("  k / Up     Scroll up within focused container"),
+        Line::from("  Enter      Open detail view (description/check output)"),
+        Line::from("  Esc / q    Close detail view or overlay"),
+        Line::from(""),
         Line::from("  r          Refresh"),
         Line::from("  R          Force re-fetch"),
         Line::from("  ?          Toggle this help"),
@@ -69,7 +77,7 @@ mod tests {
 
     #[test]
     fn render_help_overlay() {
-        let backend = TestBackend::new(80, 50);
+        let backend = TestBackend::new(80, 60);
         let mut terminal = Terminal::new(backend).unwrap();
         terminal.draw(|f| render(f, f.area())).unwrap();
         let buffer = terminal.backend().buffer();

@@ -1,6 +1,6 @@
 use crate::analysis::approval::{ApprovalState, collapse_reviews};
 use crate::github::models::{MergeableState, RollupState};
-use crate::github::pr::{PullRequestSnapshot, UpToDateState};
+use crate::github::pr::{CheckStatus, PullRequestSnapshot, UpToDateState};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MergeReadiness {
@@ -22,7 +22,7 @@ pub fn assess(pr: &PullRequestSnapshot) -> MergeReadiness {
         return MergeReadiness::Failed;
     }
 
-    let checks_failed = pr.checks.iter().any(|c| c.failed);
+    let checks_failed = pr.checks.iter().any(|c| c.status == CheckStatus::Failed);
     if checks_failed {
         return MergeReadiness::Failed;
     }
@@ -36,7 +36,7 @@ pub fn assess(pr: &PullRequestSnapshot) -> MergeReadiness {
         return MergeReadiness::Failed;
     }
 
-    let checks_pending = pr.checks.iter().any(|c| !c.completed && !c.failed);
+    let checks_pending = pr.checks.iter().any(|c| c.status == CheckStatus::Running);
     if checks_pending {
         return MergeReadiness::Waiting;
     }
@@ -67,8 +67,21 @@ pub fn assess(pr: &PullRequestSnapshot) -> MergeReadiness {
 mod tests {
     use super::*;
     use crate::github::models::ReviewState;
-    use crate::github::pr::{CheckKind, CheckSnapshot, ReviewSnapshot, UpToDateState};
+    use crate::github::pr::{CheckKind, CheckSnapshot, CheckStatus, ReviewSnapshot, UpToDateState};
     use rstest::rstest;
+
+    fn make_check(status: CheckStatus) -> CheckSnapshot {
+        CheckSnapshot {
+            name: "CI".to_string(),
+            kind: CheckKind::CheckRun,
+            status,
+            required: false,
+            started_at: None,
+            completed_at: None,
+            output_text: None,
+            output_summary: None,
+        }
+    }
 
     fn make_pr() -> PullRequestSnapshot {
         PullRequestSnapshot {
@@ -80,18 +93,12 @@ mod tests {
             mergeable: MergeableState::Mergeable,
             repo: "o/r".to_string(),
             rollup_state: Some(RollupState::Success),
-            checks: vec![CheckSnapshot {
-                name: "CI".to_string(),
-                kind: CheckKind::CheckRun,
-                completed: true,
-                failed: false,
-                skipped: false,
-                running: false,
-            }],
+            checks: vec![make_check(CheckStatus::Success)],
             reviews: vec![ReviewSnapshot {
                 author: "alice".to_string(),
                 state: ReviewState::Approved,
                 body: String::new(),
+                submitted_at: None,
             }],
             up_to_date: UpToDateState::UpToDate,
             additions: 0,
@@ -159,28 +166,14 @@ mod tests {
     #[rstest]
     fn checks_pending_waiting() {
         let mut pr = make_pr();
-        pr.checks = vec![CheckSnapshot {
-            name: "CI".to_string(),
-            kind: CheckKind::CheckRun,
-            completed: false,
-            failed: false,
-            skipped: false,
-            running: false,
-        }];
+        pr.checks = vec![make_check(CheckStatus::Running)];
         assert_eq!(assess(&pr), MergeReadiness::Waiting);
     }
 
     #[rstest]
     fn checks_failure_failed() {
         let mut pr = make_pr();
-        pr.checks = vec![CheckSnapshot {
-            name: "CI".to_string(),
-            kind: CheckKind::CheckRun,
-            completed: true,
-            failed: true,
-            skipped: false,
-            running: false,
-        }];
+        pr.checks = vec![make_check(CheckStatus::Failed)];
         assert_eq!(assess(&pr), MergeReadiness::Failed);
     }
 
@@ -196,22 +189,8 @@ mod tests {
     fn mixed_failure_plus_approved_failed() {
         let mut pr = make_pr();
         pr.checks = vec![
-            CheckSnapshot {
-                name: "CI".to_string(),
-                kind: CheckKind::CheckRun,
-                completed: true,
-                failed: true,
-                skipped: false,
-                running: false,
-            },
-            CheckSnapshot {
-                name: "Lint".to_string(),
-                kind: CheckKind::CheckRun,
-                completed: false,
-                failed: false,
-                skipped: false,
-                running: false,
-            },
+            make_check(CheckStatus::Failed),
+            make_check(CheckStatus::Running),
         ];
         assert_eq!(assess(&pr), MergeReadiness::Failed);
     }
@@ -219,18 +198,12 @@ mod tests {
     #[rstest]
     fn mixed_pending_plus_changes_requested_failed() {
         let mut pr = make_pr();
-        pr.checks = vec![CheckSnapshot {
-            name: "CI".to_string(),
-            kind: CheckKind::CheckRun,
-            completed: false,
-            failed: false,
-            skipped: false,
-            running: false,
-        }];
+        pr.checks = vec![make_check(CheckStatus::Running)];
         pr.reviews = vec![ReviewSnapshot {
             author: "bob".to_string(),
             state: ReviewState::ChangesRequested,
             body: String::new(),
+            submitted_at: None,
         }];
         assert_eq!(assess(&pr), MergeReadiness::Failed);
     }
@@ -238,14 +211,7 @@ mod tests {
     #[rstest]
     fn mixed_pending_no_reviews_waiting() {
         let mut pr = make_pr();
-        pr.checks = vec![CheckSnapshot {
-            name: "CI".to_string(),
-            kind: CheckKind::CheckRun,
-            completed: false,
-            failed: false,
-            skipped: false,
-            running: false,
-        }];
+        pr.checks = vec![make_check(CheckStatus::Running)];
         pr.reviews = vec![];
         assert_eq!(assess(&pr), MergeReadiness::Waiting);
     }

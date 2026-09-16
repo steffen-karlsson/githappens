@@ -71,6 +71,7 @@ mod tests {
             author: author.to_string(),
             state,
             body: String::new(),
+            submitted_at: None,
         }
     }
 

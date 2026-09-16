@@ -24,6 +24,19 @@ pub enum KeyAction {
     None,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DescribeFocus {
+    Description,
+    Checks,
+    Activity,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum DescribeSubView {
+    Description,
+    CheckDetail { index: usize },
+}
+
 pub struct App {
     pub state: AppState,
     pub prs: Vec<PullRequestSnapshot>,
@@ -32,6 +45,9 @@ pub struct App {
     pub help_visible: bool,
     pub describe_visible: bool,
     pub describe_scroll: usize,
+    pub describe_focus: DescribeFocus,
+    pub describe_subview: Option<DescribeSubView>,
+    pub describe_subview_scroll: usize,
     pub last_refresh: Option<Instant>,
     pub truncated: bool,
     refresh_interval: Duration,
@@ -50,6 +66,9 @@ impl App {
             help_visible: false,
             describe_visible: false,
             describe_scroll: 0,
+            describe_focus: DescribeFocus::Description,
+            describe_subview: None,
+            describe_subview_scroll: 0,
             last_refresh: None,
             truncated: false,
             refresh_interval: Duration::from_secs(300),
@@ -116,14 +135,64 @@ impl App {
     pub fn toggle_describe(&mut self) {
         self.describe_visible = !self.describe_visible;
         self.describe_scroll = 0;
+        self.describe_focus = DescribeFocus::Description;
+        self.describe_subview = None;
+        self.describe_subview_scroll = 0;
     }
 
     pub fn describe_scroll_down(&mut self) {
-        self.describe_scroll = self.describe_scroll.saturating_add(1);
+        if self.describe_subview.is_some() {
+            self.describe_subview_scroll = self.describe_subview_scroll.saturating_add(1);
+        } else {
+            self.describe_scroll = self.describe_scroll.saturating_add(1);
+        }
     }
 
     pub fn describe_scroll_up(&mut self) {
-        self.describe_scroll = self.describe_scroll.saturating_sub(1);
+        if self.describe_subview.is_some() {
+            self.describe_subview_scroll = self.describe_subview_scroll.saturating_sub(1);
+        } else {
+            self.describe_scroll = self.describe_scroll.saturating_sub(1);
+        }
+    }
+
+    pub fn describe_tab_next(&mut self) {
+        self.describe_focus = match self.describe_focus {
+            DescribeFocus::Description => DescribeFocus::Checks,
+            DescribeFocus::Checks => DescribeFocus::Activity,
+            DescribeFocus::Activity => DescribeFocus::Description,
+        };
+        self.describe_scroll = 0;
+    }
+
+    pub fn describe_tab_prev(&mut self) {
+        self.describe_focus = match self.describe_focus {
+            DescribeFocus::Description => DescribeFocus::Activity,
+            DescribeFocus::Checks => DescribeFocus::Description,
+            DescribeFocus::Activity => DescribeFocus::Checks,
+        };
+        self.describe_scroll = 0;
+    }
+
+    pub fn describe_open_subview(&mut self) {
+        match self.describe_focus {
+            DescribeFocus::Description => {
+                self.describe_subview = Some(DescribeSubView::Description);
+            }
+            DescribeFocus::Checks => {
+                let index = self.describe_scroll;
+                if self.prs.get(self.selected).map_or(0, |pr| pr.checks.len()) > index {
+                    self.describe_subview = Some(DescribeSubView::CheckDetail { index });
+                }
+            }
+            DescribeFocus::Activity => {}
+        }
+        self.describe_subview_scroll = 0;
+    }
+
+    pub fn describe_close_subview(&mut self) {
+        self.describe_subview = None;
+        self.describe_subview_scroll = 0;
     }
 
     pub fn handle_key(&mut self, key: crossterm::event::KeyEvent) -> KeyAction {
@@ -137,15 +206,39 @@ impl App {
         }
 
         if self.describe_visible {
+            if self.describe_subview.is_some() {
+                match key.code {
+                    KeyCode::Char('d') | KeyCode::Esc | KeyCode::Char('q') | KeyCode::Enter => {
+                        self.describe_close_subview();
+                    }
+                    KeyCode::Char('j') | KeyCode::Down => {
+                        self.describe_scroll_down();
+                    }
+                    KeyCode::Char('k') | KeyCode::Up => {
+                        self.describe_scroll_up();
+                    }
+                    _ => {}
+                }
+                return KeyAction::None;
+            }
             match key.code {
                 KeyCode::Char('d') | KeyCode::Esc | KeyCode::Char('q') => {
                     self.toggle_describe();
+                }
+                KeyCode::Tab => {
+                    self.describe_tab_next();
+                }
+                KeyCode::BackTab => {
+                    self.describe_tab_prev();
                 }
                 KeyCode::Char('j') | KeyCode::Down => {
                     self.describe_scroll_down();
                 }
                 KeyCode::Char('k') | KeyCode::Up => {
                     self.describe_scroll_up();
+                }
+                KeyCode::Enter => {
+                    self.describe_open_subview();
                 }
                 _ => {}
             }
@@ -912,15 +1005,18 @@ mod tests {
                 checks: vec![crate::github::pr::CheckSnapshot {
                     name: "CI".to_string(),
                     kind: crate::github::pr::CheckKind::CheckRun,
-                    completed: true,
-                    failed: false,
-                    skipped: false,
-                    running: false,
+                    status: crate::github::pr::CheckStatus::Success,
+                    required: false,
+                    started_at: None,
+                    completed_at: None,
+                    output_text: None,
+                    output_summary: None,
                 }],
                 reviews: vec![crate::github::pr::ReviewSnapshot {
                     author: "a".to_string(),
                     state: crate::github::models::ReviewState::Approved,
                     body: String::new(),
+                    submitted_at: None,
                 }],
                 up_to_date: crate::github::pr::UpToDateState::UpToDate,
                 additions: 0,

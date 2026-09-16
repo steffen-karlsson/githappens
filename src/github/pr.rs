@@ -29,17 +29,27 @@ pub struct PullRequestSnapshot {
     pub up_to_date: UpToDateState,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CheckStatus {
+    Running,
+    Failed,
+    Success,
+    Skipped,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckSnapshot {
     pub name: String,
     pub kind: CheckKind,
-    pub completed: bool,
-    pub failed: bool,
-    pub skipped: bool,
-    pub running: bool,
+    pub status: CheckStatus,
+    pub required: bool,
+    pub started_at: Option<String>,
+    pub completed_at: Option<String>,
+    pub output_text: Option<String>,
+    pub output_summary: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CheckKind {
     CheckRun,
     StatusContext,
@@ -50,6 +60,7 @@ pub struct ReviewSnapshot {
     pub author: String,
     pub state: ReviewState,
     pub body: String,
+    pub submitted_at: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -142,30 +153,45 @@ fn check_from_context(ctx: &CheckContext) -> CheckSnapshot {
                             | CheckRunStatus::Requested
                     )
                 );
+            let status = if running {
+                CheckStatus::Running
+            } else if failed {
+                CheckStatus::Failed
+            } else if skipped {
+                CheckStatus::Skipped
+            } else {
+                CheckStatus::Success
+            };
             CheckSnapshot {
                 name: cr.name.clone(),
                 kind: CheckKind::CheckRun,
-                completed,
-                failed,
-                skipped,
-                running,
+                status,
+                required: false,
+                started_at: cr.started_at.clone(),
+                completed_at: cr.completed_at.clone(),
+                output_text: cr.output.as_ref().and_then(|o| o.text.clone()),
+                output_summary: cr.output.as_ref().and_then(|o| o.summary.clone()),
             }
         }
         CheckContext::StatusContext(sc) => {
-            let completed = matches!(
-                sc.state,
-                StatusState::Success | StatusState::Error | StatusState::Failure
-            );
             let failed = matches!(sc.state, StatusState::Error | StatusState::Failure);
-            let skipped = false;
             let running = matches!(sc.state, StatusState::Pending);
+            let status = if running {
+                CheckStatus::Running
+            } else if failed {
+                CheckStatus::Failed
+            } else {
+                CheckStatus::Success
+            };
             CheckSnapshot {
                 name: sc.context.clone(),
                 kind: CheckKind::StatusContext,
-                completed,
-                failed,
-                skipped,
-                running,
+                status,
+                required: sc.required,
+                started_at: sc.created_at.clone(),
+                completed_at: None,
+                output_text: sc.description.clone(),
+                output_summary: None,
             }
         }
     }
@@ -180,6 +206,7 @@ fn review_from_dto(node: &ReviewNode) -> ReviewSnapshot {
             .unwrap_or_default(),
         state: node.state.clone(),
         body: node.body.clone(),
+        submitted_at: node.submitted_at.clone(),
     }
 }
 
@@ -238,10 +265,8 @@ mod tests {
         assert_eq!(snap.mergeable, MergeableState::Mergeable);
         assert_eq!(snap.rollup_state, Some(RollupState::Success));
         assert_eq!(snap.checks.len(), 2);
-        assert!(snap.checks[0].completed);
-        assert!(!snap.checks[0].failed);
-        assert!(snap.checks[1].completed);
-        assert!(!snap.checks[1].failed);
+        assert_eq!(snap.checks[0].status, CheckStatus::Success);
+        assert_eq!(snap.checks[1].status, CheckStatus::Success);
         assert_eq!(snap.reviews.len(), 1);
         assert_eq!(snap.reviews[0].author, "alice");
         assert_eq!(snap.reviews[0].state, ReviewState::Approved);
@@ -300,10 +325,8 @@ mod tests {
         let snap = from_dto(&node);
         assert_eq!(snap.rollup_state, Some(RollupState::Failure));
         assert_eq!(snap.checks.len(), 2);
-        assert!(snap.checks[0].completed);
-        assert!(snap.checks[0].failed);
-        assert!(!snap.checks[1].completed);
-        assert!(!snap.checks[1].failed);
+        assert_eq!(snap.checks[0].status, CheckStatus::Failed);
+        assert_eq!(snap.checks[1].status, CheckStatus::Running);
     }
 
     #[test]
@@ -380,9 +403,7 @@ mod tests {
             "comments": {"nodes": []}
         }));
         let snap = from_dto(&node);
-        assert!(snap.checks[0].completed);
-        assert!(snap.checks[0].failed);
-        assert!(!snap.checks[1].completed);
-        assert!(!snap.checks[1].failed);
+        assert_eq!(snap.checks[0].status, CheckStatus::Failed);
+        assert_eq!(snap.checks[1].status, CheckStatus::Running);
     }
 }

@@ -32,11 +32,19 @@ query OpenPRs($first: Int!, $after: String) {
                       name
                       status
                       conclusion
+                      startedAt
+                      completedAt
+                      output {
+                        summary
+                        text
+                      }
                     }
                     ... on StatusContext {
                       context
                       state
                       description
+                      required
+                      createdAt
                     }
                   }
                 }

@@ -3,12 +3,11 @@ use ratatui::style::{Modifier, Style};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Paragraph, Row, Table};
 
-use chrono::{DateTime, Utc};
-
 use crate::analysis::approval::{ApprovalState, collapse_reviews};
 use crate::analysis::mergeability::{MergeReadiness, assess};
 use crate::analysis::workflows::{WorkflowCounts, count_checks, render_counts};
 use crate::app::App;
+use crate::ui::components;
 use crate::ui::theme;
 
 pub fn render(frame: &mut ratatui::Frame, app: &mut App) {
@@ -121,7 +120,7 @@ fn render_table(frame: &mut ratatui::Frame, area: Rect, app: &App) {
             let (utd_glyph, utd_color) = theme::up_to_date_glyph_and_color(&pr.up_to_date);
             let diff_spans = Line::from(theme::diff_spans(pr.additions, pr.deletions));
             let comment_count = pr.reviews.len() + pr.comments.len();
-            let age_str = format_age(&pr.created_at);
+            let age_str = components::format_age(&pr.created_at);
 
             let title = if pr.is_draft {
                 format!("[Draft] {}", pr.title)
@@ -167,36 +166,6 @@ fn render_table(frame: &mut ratatui::Frame, area: Rect, app: &App) {
     .header(header);
 
     frame.render_widget(table, area);
-}
-
-fn format_age(created_at: &str) -> String {
-    let parsed: DateTime<Utc> = match DateTime::parse_from_rfc3339(created_at) {
-        Ok(dt) => dt.with_timezone(&Utc),
-        Err(_) => return "?".to_string(),
-    };
-    let elapsed = Utc::now().signed_duration_since(parsed);
-    let secs = elapsed.num_seconds();
-    if secs < 60 {
-        return format!("{secs}s");
-    }
-    let mins = secs / 60;
-    if mins < 60 {
-        return format!("{mins}m");
-    }
-    let hours = mins / 60;
-    if hours < 24 {
-        return format!("{hours}h");
-    }
-    let days = hours / 24;
-    if days < 30 {
-        return format!("{days}d");
-    }
-    let months = days / 30;
-    if months < 12 {
-        return format!("{months}mo");
-    }
-    let years = months / 12;
-    format!("{years}y")
 }
 
 fn render_footer(frame: &mut ratatui::Frame, area: Rect, app: &App) {
@@ -254,70 +223,6 @@ mod tests {
     use chrono::{Duration, Utc};
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
-
-    #[test]
-    fn format_age_seconds() {
-        let ts = (Utc::now() - Duration::seconds(30)).to_rfc3339();
-        assert_eq!(format_age(&ts), "30s");
-    }
-
-    #[test]
-    fn format_age_minutes() {
-        let ts = (Utc::now() - Duration::minutes(5)).to_rfc3339();
-        assert_eq!(format_age(&ts), "5m");
-    }
-
-    #[test]
-    fn format_age_hours() {
-        let ts = (Utc::now() - Duration::hours(3)).to_rfc3339();
-        assert_eq!(format_age(&ts), "3h");
-    }
-
-    #[test]
-    fn format_age_days() {
-        let ts = (Utc::now() - Duration::days(7)).to_rfc3339();
-        assert_eq!(format_age(&ts), "7d");
-    }
-
-    #[test]
-    fn format_age_months() {
-        let ts = (Utc::now() - Duration::days(60)).to_rfc3339();
-        assert_eq!(format_age(&ts), "2mo");
-    }
-
-    #[test]
-    fn format_age_just_under_a_year() {
-        let ts = (Utc::now() - Duration::days(350)).to_rfc3339();
-        assert_eq!(format_age(&ts), "11mo");
-    }
-
-    #[test]
-    fn format_age_twelve_months_shows_year() {
-        let ts = (Utc::now() - Duration::days(360)).to_rfc3339();
-        assert_eq!(format_age(&ts), "1y");
-    }
-
-    #[test]
-    fn format_age_one_year() {
-        let ts = (Utc::now() - Duration::days(365)).to_rfc3339();
-        assert_eq!(format_age(&ts), "1y");
-    }
-
-    #[test]
-    fn format_age_multiple_years() {
-        let ts = (Utc::now() - Duration::days(730)).to_rfc3339();
-        assert_eq!(format_age(&ts), "2y");
-    }
-
-    #[test]
-    fn format_age_invalid_returns_question() {
-        assert_eq!(format_age("not a date"), "?");
-    }
-
-    #[test]
-    fn format_age_empty_returns_question() {
-        assert_eq!(format_age(""), "?");
-    }
 
     #[test]
     fn render_counts_zero() {
@@ -386,15 +291,18 @@ mod tests {
                 checks: vec![crate::github::pr::CheckSnapshot {
                     name: "CI".to_string(),
                     kind: crate::github::pr::CheckKind::CheckRun,
-                    completed: true,
-                    failed: false,
-                    skipped: false,
-                    running: false,
+                    status: crate::github::pr::CheckStatus::Success,
+                    required: false,
+                    started_at: None,
+                    completed_at: None,
+                    output_text: None,
+                    output_summary: None,
                 }],
                 reviews: vec![ReviewSnapshot {
                     author: "alice".to_string(),
                     state: ReviewState::Approved,
                     body: String::new(),
+                    submitted_at: None,
                 }],
                 comments: vec![],
                 up_to_date: UpToDateState::UpToDate,
