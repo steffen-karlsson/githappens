@@ -20,7 +20,7 @@ pub const COLOR_SELECTED: Color = Color::Black;
 pub const COLOR_SELECTED_BG: Color = Color::White;
 
 pub const HEADER_LABEL: &str = " githappens ";
-pub const FOOTER_HINT: &str = " r refresh · q quit ";
+pub const FOOTER_HINT: &str = " r refresh · Enter open · ? help · q quit ";
 pub const EMPTY_STATE_MSG: &str = "You have no open PRs. Go open one!";
 
 pub const COLUMN_INDICATOR_WIDTH: usize = 3;

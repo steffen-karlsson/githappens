@@ -229,15 +229,23 @@ fn render_footer(frame: &mut ratatui::Frame, area: Rect, app: &App) {
         .filter(|p| assess(p) == MergeReadiness::Failed)
         .count();
 
-    let footer = format!(" {total} open PRs · {ready} ready · {failed} failed ");
+    let counts = format!(" {total} open PRs · {ready} ready · {failed} failed ");
 
-    let paragraph = Paragraph::new(footer).style(
+    let chunks = Layout::horizontal([
+        Constraint::Min(1),
+        Constraint::Length(theme::FOOTER_HINT.len() as u16),
+    ])
+    .split(area);
+
+    let left = Paragraph::new(counts).style(
         Style::default()
             .add_modifier(Modifier::BOLD)
             .fg(theme::COLOR_HEADER),
     );
+    frame.render_widget(left, chunks[0]);
 
-    frame.render_widget(paragraph, area);
+    let right = Paragraph::new(theme::FOOTER_HINT).style(Style::default().fg(theme::COLOR_NONE));
+    frame.render_widget(right, chunks[1]);
 }
 
 fn render_checks_spans(counts: &WorkflowCounts) -> Line<'static> {
