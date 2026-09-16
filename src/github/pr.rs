@@ -89,7 +89,13 @@ pub fn from_dto(node: &PullRequestNode) -> PullRequestSnapshot {
         .nodes
         .first()
         .and_then(|c| c.commit.status_check_rollup.as_ref())
-        .map(|r| r.contexts.nodes.iter().map(check_from_context).collect())
+        .map(|r| {
+            r.contexts
+                .nodes
+                .iter()
+                .filter_map(|c| c.as_ref().map(check_from_context))
+                .collect()
+        })
         .unwrap_or_default();
 
     let reviews = node.reviews.nodes.iter().map(review_from_dto).collect();

@@ -106,7 +106,7 @@ pub struct StatusCheckRollup {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ContextConnection {
-    pub nodes: Vec<CheckContext>,
+    pub nodes: Vec<Option<CheckContext>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
