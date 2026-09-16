@@ -15,6 +15,7 @@ pub struct PullRequestSnapshot {
     pub number: u32,
     pub title: String,
     pub url: String,
+    pub body: String,
     pub is_draft: bool,
     pub mergeable: MergeableState,
     pub repo: String,
@@ -24,6 +25,7 @@ pub struct PullRequestSnapshot {
     pub rollup_state: Option<RollupState>,
     pub checks: Vec<CheckSnapshot>,
     pub reviews: Vec<ReviewSnapshot>,
+    pub comments: Vec<CommentSnapshot>,
     pub up_to_date: UpToDateState,
 }
 
@@ -47,6 +49,14 @@ pub enum CheckKind {
 pub struct ReviewSnapshot {
     pub author: String,
     pub state: ReviewState,
+    pub body: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CommentSnapshot {
+    pub author: String,
+    pub body: String,
+    pub created_at: String,
 }
 
 pub fn from_dto(node: &PullRequestNode) -> PullRequestSnapshot {
@@ -72,11 +82,26 @@ pub fn from_dto(node: &PullRequestNode) -> PullRequestSnapshot {
         .unwrap_or_default();
 
     let reviews = node.reviews.nodes.iter().map(review_from_dto).collect();
+    let comments = node
+        .comments
+        .nodes
+        .iter()
+        .map(|c| CommentSnapshot {
+            author: c
+                .author
+                .as_ref()
+                .and_then(|a| a.login.clone())
+                .unwrap_or_default(),
+            body: c.body.clone(),
+            created_at: c.created_at.clone().unwrap_or_default(),
+        })
+        .collect();
 
     PullRequestSnapshot {
         number: node.number,
         title: node.title.clone(),
         url: node.url.clone(),
+        body: node.body.clone(),
         is_draft: node.is_draft,
         mergeable: node.mergeable.clone(),
         repo,
@@ -86,6 +111,7 @@ pub fn from_dto(node: &PullRequestNode) -> PullRequestSnapshot {
         rollup_state,
         checks,
         reviews,
+        comments,
         up_to_date: UpToDateState::Unknown,
     }
 }
@@ -153,6 +179,7 @@ fn review_from_dto(node: &ReviewNode) -> ReviewSnapshot {
             .and_then(|a| a.login.clone())
             .unwrap_or_default(),
         state: node.state.clone(),
+        body: node.body.clone(),
     }
 }
 
@@ -173,6 +200,7 @@ mod tests {
             "number": 42,
             "title": "Add feature",
             "url": "https://github.com/owner/repo/pull/42",
+            "body": "",
             "isDraft": false,
             "mergeable": "MERGEABLE",
             "headRefOid": "abc",
@@ -199,7 +227,8 @@ mod tests {
                 "nodes": [
                     {"author": {"login": "alice"}, "state": "APPROVED", "submittedAt": "2024-01-01T00:00:00Z"}
                 ]
-            }
+            },
+            "comments": {"nodes": []}
         }));
         let snap = from_dto(&node);
         assert_eq!(snap.number, 42);
@@ -224,6 +253,7 @@ mod tests {
             "number": 1,
             "title": "Test",
             "url": "https://github.com/o/r/pull/1",
+            "body": "",
             "isDraft": true,
             "mergeable": "UNKNOWN",
             "headRefOid": null,
@@ -232,7 +262,8 @@ mod tests {
             "createdAt": "2024-01-01T00:00:00Z",
             "repository": {"nameWithOwner": "o/r"},
             "commits": {"nodes": [{"commit": {"statusCheckRollup": null}}]},
-            "reviews": {"nodes": []}
+            "reviews": {"nodes": []},
+            "comments": {"nodes": []}
         }));
         let snap = from_dto(&node);
         assert!(snap.is_draft);
@@ -248,6 +279,7 @@ mod tests {
             "number": 3,
             "title": "Broken",
             "url": "https://github.com/o/r/pull/3",
+            "body": "",
             "isDraft": false,
             "mergeable": "MERGEABLE",
             "headRefOid": "def",
@@ -262,7 +294,8 @@ mod tests {
                     {"__typename": "CheckRun", "name": "Lint", "status": "IN_PROGRESS", "conclusion": null}
                 ]}
             }}}]},
-            "reviews": {"nodes": []}
+            "reviews": {"nodes": []},
+            "comments": {"nodes": []}
         }));
         let snap = from_dto(&node);
         assert_eq!(snap.rollup_state, Some(RollupState::Failure));
@@ -279,6 +312,7 @@ mod tests {
             "number": 5,
             "title": "No repo",
             "url": "https://github.com/o/r/pull/5",
+            "body": "",
             "isDraft": false,
             "mergeable": "CONFLICTING",
             "headRefOid": "ghi",
@@ -286,7 +320,8 @@ mod tests {
             "deletions": 0,
             "createdAt": "2024-01-01T00:00:00Z",
             "commits": {"nodes": [{"commit": {"statusCheckRollup": null}}]},
-            "reviews": {"nodes": []}
+            "reviews": {"nodes": []},
+            "comments": {"nodes": []}
         }));
         let snap = from_dto(&node);
         assert_eq!(snap.repo, "");
@@ -299,6 +334,7 @@ mod tests {
             "number": 7,
             "title": "Bot review",
             "url": "https://github.com/o/r/pull/7",
+            "body": "",
             "isDraft": false,
             "mergeable": "MERGEABLE",
             "headRefOid": "jkl",
@@ -310,7 +346,8 @@ mod tests {
             "reviews": {"nodes": [
                 {"author": null, "state": "COMMENTED", "submittedAt": null},
                 {"author": {"login": null}, "state": "APPROVED", "submittedAt": "2024-01-01T00:00:00Z"}
-            ]}
+            ]},
+            "comments": {"nodes": []}
         }));
         let snap = from_dto(&node);
         assert_eq!(snap.reviews.len(), 2);
@@ -324,6 +361,7 @@ mod tests {
             "number": 8,
             "title": "Status fail",
             "url": "https://github.com/o/r/pull/8",
+            "body": "",
             "isDraft": false,
             "mergeable": "MERGEABLE",
             "headRefOid": "mno",
@@ -338,7 +376,8 @@ mod tests {
                     {"__typename": "StatusContext", "name": "ci/travis", "state": "PENDING"}
                 ]}
             }}}]},
-            "reviews": {"nodes": []}
+            "reviews": {"nodes": []},
+            "comments": {"nodes": []}
         }));
         let snap = from_dto(&node);
         assert!(snap.checks[0].completed);

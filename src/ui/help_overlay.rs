@@ -14,6 +14,7 @@ pub fn render(frame: &mut ratatui::Frame, area: Rect) {
         Line::from("  g          Go to top"),
         Line::from("  G          Go to bottom"),
         Line::from("  Enter      Open PR in browser"),
+        Line::from("  d          Describe PR (overlay with details)"),
         Line::from("  r          Refresh"),
         Line::from("  R          Force re-fetch"),
         Line::from("  ?          Toggle this help"),
@@ -68,7 +69,7 @@ mod tests {
 
     #[test]
     fn render_help_overlay() {
-        let backend = TestBackend::new(80, 40);
+        let backend = TestBackend::new(80, 50);
         let mut terminal = Terminal::new(backend).unwrap();
         terminal.draw(|f| render(f, f.area())).unwrap();
         let buffer = terminal.backend().buffer();

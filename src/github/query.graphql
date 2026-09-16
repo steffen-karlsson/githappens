@@ -10,6 +10,7 @@ query OpenPRs($first: Int!, $after: String) {
         number
         title
         url
+        body
         isDraft
         mergeable
         headRefOid
@@ -50,6 +51,16 @@ query OpenPRs($first: Int!, $after: String) {
             }
             state
             submittedAt
+            body
+          }
+        }
+        comments(first: 100) {
+          nodes {
+            author {
+              login
+            }
+            body
+            createdAt
           }
         }
       }

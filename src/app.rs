@@ -30,6 +30,8 @@ pub struct App {
     pub selected: usize,
     pub viewer_login: String,
     pub help_visible: bool,
+    pub describe_visible: bool,
+    pub describe_scroll: usize,
     pub last_refresh: Option<Instant>,
     pub truncated: bool,
     refresh_interval: Duration,
@@ -46,6 +48,8 @@ impl App {
             selected: 0,
             viewer_login: String::new(),
             help_visible: false,
+            describe_visible: false,
+            describe_scroll: 0,
             last_refresh: None,
             truncated: false,
             refresh_interval: Duration::from_secs(300),
@@ -109,12 +113,41 @@ impl App {
         self.help_visible = !self.help_visible;
     }
 
+    pub fn toggle_describe(&mut self) {
+        self.describe_visible = !self.describe_visible;
+        self.describe_scroll = 0;
+    }
+
+    pub fn describe_scroll_down(&mut self) {
+        self.describe_scroll = self.describe_scroll.saturating_add(1);
+    }
+
+    pub fn describe_scroll_up(&mut self) {
+        self.describe_scroll = self.describe_scroll.saturating_sub(1);
+    }
+
     pub fn handle_key(&mut self, key: crossterm::event::KeyEvent) -> KeyAction {
         use crossterm::event::KeyCode;
 
         if self.help_visible {
             if key.code == KeyCode::Char('?') {
                 self.toggle_help();
+            }
+            return KeyAction::None;
+        }
+
+        if self.describe_visible {
+            match key.code {
+                KeyCode::Char('d') | KeyCode::Esc | KeyCode::Char('q') => {
+                    self.toggle_describe();
+                }
+                KeyCode::Char('j') | KeyCode::Down => {
+                    self.describe_scroll_down();
+                }
+                KeyCode::Char('k') | KeyCode::Up => {
+                    self.describe_scroll_up();
+                }
+                _ => {}
             }
             return KeyAction::None;
         }
@@ -146,6 +179,10 @@ impl App {
             }
             KeyCode::Char('r') => KeyAction::Refresh,
             KeyCode::Char('R') => KeyAction::ForceRefresh,
+            KeyCode::Char('d') => {
+                self.toggle_describe();
+                KeyAction::None
+            }
             KeyCode::Char('?') => {
                 self.toggle_help();
                 KeyAction::None
@@ -317,6 +354,7 @@ mod tests {
                 number: 1,
                 title: "PR 1".to_string(),
                 url: "https://github.com/o/r/pull/1".to_string(),
+                body: String::new(),
                 is_draft: false,
                 mergeable: crate::github::models::MergeableState::Mergeable,
                 repo: "o/r".to_string(),
@@ -327,11 +365,13 @@ mod tests {
                 additions: 0,
                 deletions: 0,
                 created_at: String::new(),
+                comments: vec![],
             },
             PullRequestSnapshot {
                 number: 2,
                 title: "PR 2".to_string(),
                 url: "https://github.com/o/r/pull/2".to_string(),
+                body: String::new(),
                 is_draft: false,
                 mergeable: crate::github::models::MergeableState::Mergeable,
                 repo: "o/r".to_string(),
@@ -342,6 +382,7 @@ mod tests {
                 additions: 0,
                 deletions: 0,
                 created_at: String::new(),
+                comments: vec![],
             },
         ];
         app.select_down();
@@ -459,6 +500,7 @@ mod tests {
                 number: 1,
                 title: "PR 1".to_string(),
                 url: "https://github.com/o/r/pull/1".to_string(),
+                body: String::new(),
                 is_draft: false,
                 mergeable: crate::github::models::MergeableState::Mergeable,
                 repo: "o/r".to_string(),
@@ -469,11 +511,13 @@ mod tests {
                 additions: 0,
                 deletions: 0,
                 created_at: String::new(),
+                comments: vec![],
             },
             PullRequestSnapshot {
                 number: 2,
                 title: "PR 2".to_string(),
                 url: "https://github.com/o/r/pull/2".to_string(),
+                body: String::new(),
                 is_draft: false,
                 mergeable: crate::github::models::MergeableState::Mergeable,
                 repo: "o/r".to_string(),
@@ -484,6 +528,7 @@ mod tests {
                 additions: 0,
                 deletions: 0,
                 created_at: String::new(),
+                comments: vec![],
             },
         ];
         app.selected = 1;
@@ -501,6 +546,7 @@ mod tests {
             number: 1,
             title: "PR 1".to_string(),
             url: "https://github.com/o/r/pull/1".to_string(),
+            body: String::new(),
             is_draft: false,
             mergeable: crate::github::models::MergeableState::Mergeable,
             repo: "o/r".to_string(),
@@ -511,6 +557,7 @@ mod tests {
             additions: 0,
             deletions: 0,
             created_at: String::new(),
+            comments: vec![],
         }];
         assert_eq!(app.selected_pr().unwrap().number, 1);
     }
@@ -549,6 +596,7 @@ mod tests {
                 number: 1,
                 title: "PR 1".to_string(),
                 url: "https://github.com/o/r/pull/1".to_string(),
+                body: String::new(),
                 is_draft: false,
                 mergeable: crate::github::models::MergeableState::Mergeable,
                 repo: "o/r".to_string(),
@@ -559,11 +607,13 @@ mod tests {
                 additions: 0,
                 deletions: 0,
                 created_at: String::new(),
+                comments: vec![],
             },
             PullRequestSnapshot {
                 number: 2,
                 title: "PR 2".to_string(),
                 url: "https://github.com/o/r/pull/2".to_string(),
+                body: String::new(),
                 is_draft: false,
                 mergeable: crate::github::models::MergeableState::Mergeable,
                 repo: "o/r".to_string(),
@@ -574,6 +624,7 @@ mod tests {
                 additions: 0,
                 deletions: 0,
                 created_at: String::new(),
+                comments: vec![],
             },
         ];
         use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -590,6 +641,7 @@ mod tests {
             number: 1,
             title: "PR 1".to_string(),
             url: "https://github.com/o/r/pull/1".to_string(),
+            body: String::new(),
             is_draft: false,
             mergeable: crate::github::models::MergeableState::Mergeable,
             repo: "o/r".to_string(),
@@ -600,6 +652,7 @@ mod tests {
             additions: 0,
             deletions: 0,
             created_at: String::new(),
+            comments: vec![],
         }];
         app.selected = 0;
         use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -616,6 +669,7 @@ mod tests {
             number: 1,
             title: "PR 1".to_string(),
             url: "https://github.com/o/r/pull/1".to_string(),
+            body: String::new(),
             is_draft: false,
             mergeable: crate::github::models::MergeableState::Mergeable,
             repo: "o/r".to_string(),
@@ -626,6 +680,7 @@ mod tests {
             additions: 0,
             deletions: 0,
             created_at: String::new(),
+            comments: vec![],
         }];
         app.selected = 0;
         use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -643,6 +698,7 @@ mod tests {
                 number: 1,
                 title: "PR 1".to_string(),
                 url: "https://github.com/o/r/pull/1".to_string(),
+                body: String::new(),
                 is_draft: false,
                 mergeable: crate::github::models::MergeableState::Mergeable,
                 repo: "o/r".to_string(),
@@ -653,11 +709,13 @@ mod tests {
                 additions: 0,
                 deletions: 0,
                 created_at: String::new(),
+                comments: vec![],
             },
             PullRequestSnapshot {
                 number: 2,
                 title: "PR 2".to_string(),
                 url: "https://github.com/o/r/pull/2".to_string(),
+                body: String::new(),
                 is_draft: false,
                 mergeable: crate::github::models::MergeableState::Mergeable,
                 repo: "o/r".to_string(),
@@ -668,6 +726,7 @@ mod tests {
                 additions: 0,
                 deletions: 0,
                 created_at: String::new(),
+                comments: vec![],
             },
         ];
         use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -684,6 +743,7 @@ mod tests {
             number: 1,
             title: "PR 1".to_string(),
             url: "https://github.com/o/r/pull/1".to_string(),
+            body: String::new(),
             is_draft: false,
             mergeable: crate::github::models::MergeableState::Mergeable,
             repo: "o/r".to_string(),
@@ -694,6 +754,7 @@ mod tests {
             additions: 0,
             deletions: 0,
             created_at: String::new(),
+            comments: vec![],
         }];
         use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
         let action = app.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
@@ -814,6 +875,7 @@ mod tests {
                 number: 1,
                 title: "PR".to_string(),
                 url: "https://github.com/o/r/pull/1".to_string(),
+                body: String::new(),
                 is_draft: false,
                 mergeable: crate::github::models::MergeableState::Mergeable,
                 repo: "o/r".to_string(),
@@ -824,6 +886,7 @@ mod tests {
                 additions: 0,
                 deletions: 0,
                 created_at: String::new(),
+                comments: vec![],
             }],
             truncated: false,
         }));
@@ -841,6 +904,7 @@ mod tests {
                 number: 1,
                 title: "Ready PR".to_string(),
                 url: String::new(),
+                body: String::new(),
                 is_draft: false,
                 mergeable: crate::github::models::MergeableState::Mergeable,
                 repo: "o/r".to_string(),
@@ -856,16 +920,19 @@ mod tests {
                 reviews: vec![crate::github::pr::ReviewSnapshot {
                     author: "a".to_string(),
                     state: crate::github::models::ReviewState::Approved,
+                    body: String::new(),
                 }],
                 up_to_date: crate::github::pr::UpToDateState::UpToDate,
                 additions: 0,
                 deletions: 0,
                 created_at: String::new(),
+                comments: vec![],
             },
             PullRequestSnapshot {
                 number: 2,
                 title: "Failed PR".to_string(),
                 url: String::new(),
+                body: String::new(),
                 is_draft: false,
                 mergeable: crate::github::models::MergeableState::Conflicting,
                 repo: "o/r".to_string(),
@@ -876,6 +943,7 @@ mod tests {
                 additions: 0,
                 deletions: 0,
                 created_at: String::new(),
+                comments: vec![],
             },
         ];
         assert_eq!(app.ready_count(), 1);

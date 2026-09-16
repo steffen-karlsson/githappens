@@ -1,0 +1,241 @@
+use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::style::{Modifier, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{Block, Borders, Clear, List, ListItem, Paragraph};
+
+use crate::analysis::approval::collapse_reviews;
+use crate::analysis::mergeability::assess;
+use crate::analysis::workflows::count_checks;
+use crate::app::App;
+use crate::github::pr::PullRequestSnapshot;
+use crate::ui::theme;
+
+pub fn render(frame: &mut ratatui::Frame, area: Rect, app: &App) {
+    let Some(pr) = app.selected_pr() else {
+        return;
+    };
+
+    let popup = centered(area, 80, 85);
+    frame.render_widget(Clear, popup);
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(format!(" {} #{} — {} ", pr.repo, pr.number, pr.title));
+    frame.render_widget(block, popup);
+
+    let inner = Rect {
+        x: popup.x + 1,
+        y: popup.y + 1,
+        width: popup.width.saturating_sub(2),
+        height: popup.height.saturating_sub(2),
+    };
+
+    let chunks = Layout::vertical([
+        Constraint::Length(7),
+        Constraint::Length(4),
+        Constraint::Length(pr.checks.len() as u16 + 3),
+        Constraint::Min(1),
+    ])
+    .split(inner);
+
+    render_details(frame, chunks[0], pr);
+    render_approval(frame, chunks[1], pr);
+    render_checks_table(frame, chunks[2], pr);
+    render_comments(frame, chunks[3], pr, app.describe_scroll);
+}
+
+fn render_details(frame: &mut ratatui::Frame, area: Rect, pr: &PullRequestSnapshot) {
+    let readiness = assess(pr);
+    let (glyph, color) = theme::merge_glyph_and_color(&readiness);
+    let counts = count_checks(&pr.checks);
+    let approval = collapse_reviews(&pr.reviews);
+
+    let lines = vec![
+        Line::from(vec![
+            Span::styled(format!(" {glyph} "), Style::default().fg(color)),
+            Span::raw(format!("{} · {} ", pr.repo, pr.number)),
+            Span::styled(
+                if pr.is_draft { "[Draft] " } else { "" },
+                Style::default().add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(format!("+{}/{}", pr.additions, pr.deletions)),
+        ]),
+        Line::from(""),
+        Line::from(Span::styled(
+            format!(" {} ", pr.url),
+            Style::default().fg(theme::COLOR_NONE),
+        )),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("Status: ", Style::default().add_modifier(Modifier::BOLD)),
+            Span::styled(format!("{:?}", readiness), Style::default().fg(color)),
+            Span::raw(format!(
+                "  ·  Checks: {}/{}/{}/{}  ·  Approval: {:?}",
+                counts.success, counts.failed, counts.running, counts.skipped, approval
+            )),
+        ]),
+        Line::from(""),
+        Line::from(Span::styled(
+            "Description:",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+    ];
+
+    frame.render_widget(Paragraph::new(lines), area);
+}
+
+fn render_approval(frame: &mut ratatui::Frame, area: Rect, pr: &PullRequestSnapshot) {
+    let approval = collapse_reviews(&pr.reviews);
+    let (glyph, color) = theme::approval_glyph_and_color(&approval);
+
+    let mut lines = vec![Line::from(vec![
+        Span::styled("Approval: ", Style::default().add_modifier(Modifier::BOLD)),
+        Span::styled(format!("{glyph} "), Style::default().fg(color)),
+        Span::raw(format!("{:?}", approval)),
+    ])];
+
+    if !pr.reviews.is_empty() {
+        lines.push(Line::from(""));
+        for review in &pr.reviews {
+            let state_color = match review.state {
+                crate::github::models::ReviewState::Approved => theme::COLOR_READY,
+                crate::github::models::ReviewState::ChangesRequested => theme::COLOR_FAILED,
+                _ => theme::COLOR_NONE,
+            };
+            lines.push(Line::from(vec![
+                Span::styled(
+                    format!("  {:?} ", review.state),
+                    Style::default().fg(state_color),
+                ),
+                Span::styled(
+                    review.author.clone(),
+                    Style::default().add_modifier(Modifier::BOLD),
+                ),
+            ]));
+            if !review.body.is_empty() {
+                let body_preview: String = review.body.chars().take(120).collect();
+                lines.push(Line::from(Span::styled(
+                    format!("    {}", body_preview),
+                    Style::default().fg(theme::COLOR_NONE),
+                )));
+            }
+        }
+    }
+
+    frame.render_widget(Paragraph::new(lines), area);
+}
+
+fn render_checks_table(frame: &mut ratatui::Frame, area: Rect, pr: &PullRequestSnapshot) {
+    if pr.checks.is_empty() {
+        frame.render_widget(
+            Paragraph::new(" No checks found.").style(Style::default().fg(theme::COLOR_NONE)),
+            area,
+        );
+        return;
+    }
+
+    let mut lines = vec![Line::from(Span::styled(
+        "Checks:",
+        Style::default().add_modifier(Modifier::BOLD),
+    ))];
+
+    for check in &pr.checks {
+        let (icon, color) = if check.failed {
+            ("✗", theme::COLOR_FAILED)
+        } else if check.skipped {
+            ("⊝", theme::COLOR_NONE)
+        } else if check.running {
+            ("⏳", theme::COLOR_WAITING)
+        } else if check.completed {
+            ("✓", theme::COLOR_READY)
+        } else {
+            ("?", theme::COLOR_NONE)
+        };
+
+        lines.push(Line::from(vec![
+            Span::styled(format!(" {icon} "), Style::default().fg(color)),
+            Span::raw(check.name.clone()),
+        ]));
+    }
+
+    frame.render_widget(
+        List::new(lines.into_iter().map(ListItem::new).collect::<Vec<_>>()),
+        area,
+    );
+}
+
+fn render_comments(
+    frame: &mut ratatui::Frame,
+    area: Rect,
+    pr: &PullRequestSnapshot,
+    scroll: usize,
+) {
+    let block = Block::default().borders(Borders::TOP).title(" Comments ");
+
+    if pr.comments.is_empty() && pr.body.is_empty() {
+        frame.render_widget(
+            Paragraph::new(" No comments.")
+                .block(block)
+                .style(Style::default().fg(theme::COLOR_NONE)),
+            area,
+        );
+        return;
+    }
+
+    let mut items: Vec<Line> = Vec::new();
+
+    if !pr.body.is_empty() {
+        items.push(Line::from(Span::styled(
+            "Description",
+            Style::default().add_modifier(Modifier::BOLD),
+        )));
+        for line in pr.body.lines() {
+            items.push(Line::from(format!("  {line}")));
+        }
+        items.push(Line::from(""));
+    }
+
+    for comment in &pr.comments {
+        items.push(Line::from(vec![
+            Span::styled(
+                comment.author.clone(),
+                Style::default().add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                format!("  {}", comment.created_at),
+                Style::default().fg(theme::COLOR_NONE),
+            ),
+        ]));
+        for line in comment.body.lines() {
+            items.push(Line::from(format!("  {line}")));
+        }
+        items.push(Line::from(""));
+    }
+
+    let total_lines = items.len();
+    let visible_lines = area.height as usize;
+    let max_scroll = total_lines.saturating_sub(visible_lines);
+    let scroll = scroll.min(max_scroll);
+
+    let paragraph = Paragraph::new(items)
+        .block(block)
+        .scroll((scroll as u16, 0));
+
+    frame.render_widget(paragraph, area);
+}
+
+fn centered(area: Rect, width_pct: u16, height_pct: u16) -> Rect {
+    let popup = Layout::vertical([
+        Constraint::Percentage((100 - height_pct) / 2),
+        Constraint::Percentage(height_pct),
+        Constraint::Percentage((100 - height_pct) / 2),
+    ])
+    .split(area);
+
+    Layout::horizontal([
+        Constraint::Percentage((100 - width_pct) / 2),
+        Constraint::Percentage(width_pct),
+        Constraint::Percentage((100 - width_pct) / 2),
+    ])
+    .split(popup[1])[1]
+}

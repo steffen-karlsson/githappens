@@ -19,6 +19,11 @@ pub fn render(frame: &mut ratatui::Frame, app: &mut App) {
         return;
     }
 
+    if app.describe_visible {
+        crate::ui::describe_overlay::render(frame, area, app);
+        return;
+    }
+
     match &app.state {
         crate::app::AppState::Error(msg) => {
             crate::ui::error_screen::render(frame, area, msg);
@@ -430,6 +435,7 @@ mod tests {
                 number: 42,
                 title: "Add feature".to_string(),
                 url: "https://github.com/o/r/pull/42".to_string(),
+                body: String::new(),
                 is_draft: false,
                 mergeable: MergeableState::Mergeable,
                 repo: "o/r".to_string(),
@@ -448,13 +454,16 @@ mod tests {
                 reviews: vec![ReviewSnapshot {
                     author: "alice".to_string(),
                     state: ReviewState::Approved,
+                    body: String::new(),
                 }],
+                comments: vec![],
                 up_to_date: UpToDateState::UpToDate,
             },
             PullRequestSnapshot {
                 number: 99,
                 title: "Draft PR".to_string(),
                 url: "https://github.com/o/r/pull/99".to_string(),
+                body: String::new(),
                 is_draft: true,
                 mergeable: MergeableState::Conflicting,
                 repo: "o/r".to_string(),
@@ -464,6 +473,7 @@ mod tests {
                 rollup_state: None,
                 checks: vec![],
                 reviews: vec![],
+                comments: vec![],
                 up_to_date: UpToDateState::OutOfDate,
             },
         ];

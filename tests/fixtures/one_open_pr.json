@@ -12,6 +12,7 @@
             "number": 42,
             "title": "Add flaky CI retry",
             "url": "https://github.com/owner/repo/pull/42",
+            "body": "",
             "isDraft": false,
             "mergeable": "MERGEABLE",
             "headRefOid": "abc123","additions": 0,"deletions": 0,"createdAt": "2024-01-01T00:00:00Z",
@@ -35,7 +36,8 @@
               "nodes": [
                 {"author": {"login": "alice"}, "state": "APPROVED", "submittedAt": "2024-01-01T00:00:00Z"}
               ]
-            }
+            },
+            "comments": {"nodes": []}
           }
         ]
       }

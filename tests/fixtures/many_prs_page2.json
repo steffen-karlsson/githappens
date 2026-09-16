@@ -12,23 +12,27 @@
             "number": 98,
             "title": "PR 98",
             "url": "https://github.com/owner/repo/pull/98",
+            "body": "",
             "isDraft": false,
             "mergeable": "CONFLICTING",
             "headRefOid": "oid98","additions": 0,"deletions": 0,"createdAt": "2024-01-01T00:00:00Z",
             "repository": {"nameWithOwner": "owner/repo"},
             "commits": {"nodes": [{"commit": {"statusCheckRollup": null}}]},
-            "reviews": {"nodes": []}
+            "reviews": {"nodes": []},
+            "comments": {"nodes": []}
           },
           {
             "number": 100,
             "title": "PR 100 duplicate",
             "url": "https://github.com/owner/repo/pull/100",
+            "body": "",
             "isDraft": false,
             "mergeable": "MERGEABLE",
             "headRefOid": "oid100","additions": 0,"deletions": 0,"createdAt": "2024-01-01T00:00:00Z",
             "repository": {"nameWithOwner": "owner/repo"},
             "commits": {"nodes": [{"commit": {"statusCheckRollup": null}}]},
-            "reviews": {"nodes": []}
+            "reviews": {"nodes": []},
+            "comments": {"nodes": []}
           }
         ]
       }

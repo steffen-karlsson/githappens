@@ -70,6 +70,7 @@ mod tests {
         ReviewSnapshot {
             author: author.to_string(),
             state,
+            body: String::new(),
         }
     }
 

@@ -75,6 +75,7 @@ mod tests {
             number: 1,
             title: "Test".to_string(),
             url: "https://github.com/o/r/pull/1".to_string(),
+            body: String::new(),
             is_draft: false,
             mergeable: MergeableState::Mergeable,
             repo: "o/r".to_string(),
@@ -90,11 +91,13 @@ mod tests {
             reviews: vec![ReviewSnapshot {
                 author: "alice".to_string(),
                 state: ReviewState::Approved,
+                body: String::new(),
             }],
             up_to_date: UpToDateState::UpToDate,
             additions: 0,
             deletions: 0,
             created_at: String::new(),
+            comments: vec![],
         }
     }
 
@@ -227,6 +230,7 @@ mod tests {
         pr.reviews = vec![ReviewSnapshot {
             author: "bob".to_string(),
             state: ReviewState::ChangesRequested,
+            body: String::new(),
         }];
         assert_eq!(assess(&pr), MergeReadiness::Failed);
     }

@@ -59,6 +59,7 @@ fn make_pr(number: u32, title: &str) -> PullRequestSnapshot {
         number,
         title: title.to_string(),
         url: format!("https://github.com/o/r/pull/{number}"),
+        body: String::new(),
         is_draft: false,
         mergeable: MergeableState::Mergeable,
         repo: "o/r".to_string(),
@@ -69,6 +70,7 @@ fn make_pr(number: u32, title: &str) -> PullRequestSnapshot {
         additions: 0,
         deletions: 0,
         created_at: String::new(),
+        comments: vec![],
     }
 }
 
