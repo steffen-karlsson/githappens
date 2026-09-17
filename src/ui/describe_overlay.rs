@@ -226,7 +226,7 @@ fn render_checks_container(
                 .unwrap_or_else(|| "–".to_string());
 
             let row = Row::new([
-                Line::from(Span::styled(icon.to_string(), Style::default().fg(color))),
+                Line::from(format!(" {icon}")).style(Style::default().fg(color)),
                 Line::from(check.name.clone()),
                 Line::from(duration),
                 Line::from(age),
@@ -247,7 +247,7 @@ fn render_checks_container(
     let table = Table::new(
         rows,
         [
-            Constraint::Length(6),
+            Constraint::Length(3),
             Constraint::Min(1),
             Constraint::Length(12),
             Constraint::Length(8),
