@@ -164,7 +164,15 @@ impl App {
             return 0;
         };
         match self.describe_focus {
-            DescribeFocus::Description => 0,
+            DescribeFocus::Description => {
+                if pr.body.is_empty() {
+                    return 0;
+                }
+                let line_count = crate::ui::components::strip_markdown(&pr.body)
+                    .lines()
+                    .count();
+                line_count.saturating_sub(3)
+            }
             DescribeFocus::Checks => pr.checks.len().saturating_sub(1),
             DescribeFocus::Activity => (pr.reviews.len() + pr.comments.len()).saturating_sub(1),
         }

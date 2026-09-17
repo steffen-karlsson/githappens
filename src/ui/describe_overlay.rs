@@ -11,7 +11,7 @@ use crate::github::pr::{CheckStatus, PullRequestSnapshot};
 use crate::ui::components;
 use crate::ui::theme;
 
-const MAX_DESC_LINES: usize = 2;
+const MAX_DESC_LINES: usize = 3;
 const MAX_VISIBLE_ROWS: u16 = 6;
 
 pub fn render(frame: &mut ratatui::Frame, area: Rect, app: &App) {
@@ -124,15 +124,34 @@ fn render_description_container(
         ))]
     } else {
         let wrapped = components::wrap_text(&cleaned, inner.width as usize);
-        let truncated = components::truncate_lines(&wrapped.join("\n"), MAX_DESC_LINES);
-        truncated
-            .lines()
-            .map(|s| Line::from(s.to_string()))
-            .collect()
+        let total = wrapped.len();
+        let scroll = if focused { app.describe_scroll } else { 0 };
+
+        if total > MAX_DESC_LINES && scroll == 0 {
+            let mut visible: Vec<Line> = wrapped
+                .iter()
+                .take(MAX_DESC_LINES - 1)
+                .map(|s| Line::from(s.to_string()))
+                .collect();
+            let last = &wrapped[MAX_DESC_LINES - 1];
+            let mut last_text = last.clone();
+            if last_text.chars().count() > inner.width as usize - 1 {
+                last_text = last_text.chars().take(inner.width as usize - 2).collect();
+            }
+            last_text.push('…');
+            visible.push(Line::from(last_text));
+            visible
+        } else {
+            let start = scroll.min(total.saturating_sub(MAX_DESC_LINES));
+            wrapped
+                .iter()
+                .skip(start)
+                .map(|s| Line::from(s.to_string()))
+                .collect()
+        }
     };
 
-    let scroll = if focused { app.describe_scroll } else { 0 };
-    frame.render_widget(Paragraph::new(lines).scroll((scroll as u16, 0)), inner);
+    frame.render_widget(Paragraph::new(lines), inner);
 }
 
 fn render_checks_container(
