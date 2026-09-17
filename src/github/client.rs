@@ -64,6 +64,7 @@ pub struct HttpGitHubFetcher {
     client: Client,
     token: String,
     endpoint: String,
+    rest_base: String,
 }
 
 impl HttpGitHubFetcher {
@@ -72,6 +73,10 @@ impl HttpGitHubFetcher {
     }
 
     pub fn new_with_endpoint(token: String, endpoint: String) -> Self {
+        let rest_base = endpoint
+            .strip_suffix("/graphql")
+            .unwrap_or(REST_API_BASE)
+            .to_string();
         let client = Client::builder()
             .timeout(HTTP_TIMEOUT)
             .user_agent("githappens")
@@ -81,11 +86,12 @@ impl HttpGitHubFetcher {
             client,
             token,
             endpoint,
+            rest_base,
         }
     }
 
     async fn fetch_mergeable_state(&self, repo: &str, number: u32) -> UpToDateState {
-        let url = format!("{REST_API_BASE}/repos/{repo}/pulls/{number}");
+        let url = format!("{}/repos/{repo}/pulls/{number}", self.rest_base);
         let result = self
             .client
             .get(&url)
