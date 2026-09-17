@@ -169,10 +169,9 @@ impl App {
                 if pr.body.is_empty() {
                     return 0;
                 }
-                let line_count = crate::ui::components::strip_markdown(&pr.body)
-                    .lines()
-                    .count();
-                line_count.saturating_sub(3)
+                let stripped = crate::ui::components::strip_markdown(&pr.body);
+                let line_count = stripped.lines().count();
+                line_count.saturating_sub(crate::ui::describe_overlay::MAX_DESC_LINES)
             }
             DescribeFocus::Checks => pr.checks.len().saturating_sub(1),
             DescribeFocus::Activity => (pr.reviews.len() + pr.comments.len()).saturating_sub(1),
@@ -200,7 +199,13 @@ impl App {
     pub fn describe_open_subview(&mut self) {
         match self.describe_focus {
             DescribeFocus::Description => {
-                self.describe_subview = Some(DescribeSubView::Description);
+                let has_body = self
+                    .prs
+                    .get(self.selected)
+                    .is_some_and(|pr| !pr.body.is_empty());
+                if has_body {
+                    self.describe_subview = Some(DescribeSubView::Description);
+                }
             }
             DescribeFocus::Checks => {
                 let index = self.describe_scroll;

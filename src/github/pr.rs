@@ -148,6 +148,9 @@ fn check_from_context(ctx: &CheckContext) -> CheckSnapshot {
                     CheckRunConclusion::Failure
                         | CheckRunConclusion::TimedOut
                         | CheckRunConclusion::Cancelled
+                        | CheckRunConclusion::StartupFailure
+                        | CheckRunConclusion::ClusterFailure
+                        | CheckRunConclusion::ActionRequired
                 )
             );
             let skipped = matches!(cr.conclusion, Some(CheckRunConclusion::Skipped));
@@ -167,8 +170,12 @@ fn check_from_context(ctx: &CheckContext) -> CheckSnapshot {
                 CheckStatus::Failed
             } else if skipped {
                 CheckStatus::Skipped
-            } else {
+            } else if completed && cr.conclusion.is_none() {
+                CheckStatus::Running
+            } else if completed {
                 CheckStatus::Success
+            } else {
+                CheckStatus::Running
             };
             CheckSnapshot {
                 name: cr.name.clone(),
@@ -195,7 +202,7 @@ fn check_from_context(ctx: &CheckContext) -> CheckSnapshot {
         }
         CheckContext::StatusContext(sc) => {
             let failed = matches!(sc.state, StatusState::Error | StatusState::Failure);
-            let running = matches!(sc.state, StatusState::Pending);
+            let running = matches!(sc.state, StatusState::Pending | StatusState::Expected);
             let status = if running {
                 CheckStatus::Running
             } else if failed {

@@ -87,6 +87,18 @@ pub fn strip_markdown(text: &str) -> String {
         if trimmed.starts_with("<!--") || trimmed.ends_with("-->") {
             continue;
         }
+        if trimmed.starts_with("- ") || trimmed.starts_with("* ") {
+            result.push_str("  ");
+            result.push_str(trimmed[2..].trim_start());
+            result.push('\n');
+            continue;
+        }
+        if trimmed.len() > 3 && trimmed[2..3].contains(". ") {
+            result.push_str("  ");
+            result.push_str(&trimmed[3..]);
+            result.push('\n');
+            continue;
+        }
         for ch in trimmed.chars() {
             match ch {
                 '<' => in_tag = true,
@@ -94,6 +106,7 @@ pub fn strip_markdown(text: &str) -> String {
                     in_tag = false;
                     continue;
                 }
+                '`' | '~' => continue,
                 _ if !in_tag => result.push(ch),
                 _ => {}
             }
@@ -102,13 +115,34 @@ pub fn strip_markdown(text: &str) -> String {
             result.push('\n');
         }
     }
-    result
+    let result = result
         .replace("### ", "")
         .replace("## ", "")
         .replace("# ", "")
         .replace("**", "")
-        .trim()
-        .to_string()
+        .replace("*", "")
+        .replace("[", "")
+        .replace("](", " — ")
+        .replace("]", "")
+        .replace(")", "");
+    let mut cleaned = String::new();
+    for line in result.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("https://") || trimmed.starts_with("http://") {
+            if let Some(space) = trimmed.find(' ') {
+                cleaned.push_str(&trimmed[..space]);
+                cleaned.push('\n');
+                cleaned.push_str(trimmed[space..].trim());
+            } else {
+                cleaned.push_str(trimmed);
+            }
+            cleaned.push('\n');
+        } else {
+            cleaned.push_str(line);
+            cleaned.push('\n');
+        }
+    }
+    cleaned.trim().to_string()
 }
 
 pub fn truncate_lines(text: &str, max_lines: usize) -> String {
@@ -132,13 +166,39 @@ pub fn wrap_text(text: &str, width: usize) -> Vec<String> {
         let mut current = String::new();
         for word in line.split_whitespace() {
             if current.is_empty() {
-                current = word.to_string();
+                if word.chars().count() <= width {
+                    current = word.to_string();
+                } else {
+                    let mut chunk = String::new();
+                    for ch in word.chars() {
+                        if chunk.chars().count() >= width {
+                            result.push(chunk.clone());
+                            chunk.clear();
+                        }
+                        chunk.push(ch);
+                    }
+                    if !chunk.is_empty() {
+                        current = chunk;
+                    }
+                }
             } else if current.chars().count() + 1 + word.chars().count() <= width {
                 current.push(' ');
                 current.push_str(word);
             } else {
                 result.push(current);
-                current = word.to_string();
+                if word.chars().count() <= width {
+                    current = word.to_string();
+                } else {
+                    let mut chunk = String::new();
+                    for ch in word.chars() {
+                        if chunk.chars().count() >= width {
+                            result.push(chunk.clone());
+                            chunk.clear();
+                        }
+                        chunk.push(ch);
+                    }
+                    current = chunk;
+                }
             }
         }
         if !current.is_empty() {

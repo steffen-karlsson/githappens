@@ -11,7 +11,7 @@ use crate::github::pr::{CheckStatus, PullRequestSnapshot};
 use crate::ui::components;
 use crate::ui::theme;
 
-const MAX_DESC_LINES: usize = 3;
+pub const MAX_DESC_LINES: usize = 3;
 const MAX_VISIBLE_ROWS: u16 = 6;
 
 pub fn render(frame: &mut ratatui::Frame, area: Rect, app: &App) {
@@ -38,11 +38,18 @@ pub fn render(frame: &mut ratatui::Frame, area: Rect, app: &App) {
         height: popup.height.saturating_sub(2),
     };
 
+    let available = inner.height;
+
+    let details_h: u16 = 2;
+    let desc_h: u16 = (MAX_DESC_LINES as u16 + 2).min(available.saturating_sub(details_h));
+    let remaining = available.saturating_sub(details_h + desc_h);
+    let table_h: u16 = (MAX_VISIBLE_ROWS + 2).min(remaining / 2);
+
     let chunks = Layout::vertical([
-        Constraint::Length(2),
-        Constraint::Length(MAX_DESC_LINES as u16 + 2),
-        Constraint::Length(MAX_VISIBLE_ROWS + 2),
-        Constraint::Length(MAX_VISIBLE_ROWS + 2),
+        Constraint::Length(details_h),
+        Constraint::Length(desc_h),
+        Constraint::Length(table_h),
+        Constraint::Length(table_h),
         Constraint::Min(1),
     ])
     .split(inner);
