@@ -101,7 +101,7 @@ fn render_description_container(
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(focus_style)
-        .title(Span::styled("Description", focus_style));
+        .title(Span::styled(" Description ", focus_style));
     frame.render_widget(block, area);
 
     let inner = Rect {
@@ -171,7 +171,7 @@ fn render_checks_container(
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(focus_style)
-        .title(Span::styled("Checks", focus_style));
+        .title(Span::styled(" Checks ", focus_style));
     frame.render_widget(block, area);
 
     let inner = Rect {
@@ -287,7 +287,7 @@ fn render_activity_container(
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(focus_style)
-        .title(Span::styled("Activity", focus_style));
+        .title(Span::styled(" Activity ", focus_style));
     frame.render_widget(block, area);
 
     let inner = Rect {
