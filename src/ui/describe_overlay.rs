@@ -192,10 +192,7 @@ fn render_checks_container(
     let indices = components::group_checks_by_status(&pr.checks);
 
     let header = Row::new([
-        Line::from(Span::styled(
-            "Status",
-            Style::default().fg(theme::COLOR_HEADER),
-        )),
+        Line::from(""),
         Line::from(Span::styled(
             "Name",
             Style::default().fg(theme::COLOR_HEADER),
@@ -484,10 +481,10 @@ fn render_subview(
 
 fn check_icon_and_color(status: &CheckStatus) -> (&'static str, ratatui::style::Color) {
     match status {
-        CheckStatus::Failed => ("✗", theme::COLOR_FAILED),
-        CheckStatus::Skipped => ("⊝", theme::COLOR_NONE),
-        CheckStatus::Running => ("⏳", theme::COLOR_WAITING),
-        CheckStatus::Success => ("✓", theme::COLOR_READY),
+        CheckStatus::Failed => ("●", theme::COLOR_FAILED),
+        CheckStatus::Skipped => ("○", theme::COLOR_NONE),
+        CheckStatus::Running => ("●", theme::COLOR_WAITING),
+        CheckStatus::Success => ("●", theme::COLOR_READY),
     }
 }
 
