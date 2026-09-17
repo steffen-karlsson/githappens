@@ -41,9 +41,12 @@ pub fn render(frame: &mut ratatui::Frame, area: Rect, app: &App) {
     let available = inner.height;
 
     let details_h: u16 = 2;
-    let desc_h: u16 = (MAX_DESC_LINES as u16 + 2).min(available.saturating_sub(details_h));
+    let desc_h: u16 = (MAX_DESC_LINES as u16 + 2)
+        .max(3)
+        .min(available.saturating_sub(details_h));
     let remaining = available.saturating_sub(details_h + desc_h);
-    let table_h: u16 = (MAX_VISIBLE_ROWS + 2).min(remaining / 2);
+    let table_min = 3u16;
+    let table_h: u16 = (MAX_VISIBLE_ROWS + 2).max(table_min).min(remaining / 2);
 
     let chunks = Layout::vertical([
         Constraint::Length(details_h),
@@ -159,6 +162,11 @@ fn render_description_container(
     };
 
     frame.render_widget(Paragraph::new(lines), inner);
+
+    if !pr.body.is_empty() {
+        let line_count = cleaned.lines().count();
+        render_total_count(frame, area, line_count);
+    }
 }
 
 fn render_checks_container(
