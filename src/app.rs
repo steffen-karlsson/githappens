@@ -1044,6 +1044,7 @@ mod tests {
                 }],
                 reviews: vec![crate::github::pr::ReviewSnapshot {
                     author: "a".to_string(),
+                    author_is_bot: false,
                     state: crate::github::models::ReviewState::Approved,
                     body: String::new(),
                     submitted_at: None,

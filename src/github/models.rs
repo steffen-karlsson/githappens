@@ -223,8 +223,11 @@ pub struct CommentNode {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ReviewAuthor {
     pub login: Option<String>,
+    #[serde(rename = "__typename")]
+    pub typename: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]

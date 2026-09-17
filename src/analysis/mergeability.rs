@@ -94,6 +94,7 @@ mod tests {
             checks: vec![make_check(CheckStatus::Success)],
             reviews: vec![ReviewSnapshot {
                 author: "alice".to_string(),
+                author_is_bot: false,
                 state: ReviewState::Approved,
                 body: String::new(),
                 submitted_at: None,
@@ -199,6 +200,7 @@ mod tests {
         pr.checks = vec![make_check(CheckStatus::Running)];
         pr.reviews = vec![ReviewSnapshot {
             author: "bob".to_string(),
+            author_is_bot: false,
             state: ReviewState::ChangesRequested,
             body: String::new(),
             submitted_at: None,

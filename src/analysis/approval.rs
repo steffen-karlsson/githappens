@@ -69,6 +69,7 @@ mod tests {
     fn review(author: &str, state: ReviewState) -> ReviewSnapshot {
         ReviewSnapshot {
             author: author.to_string(),
+            author_is_bot: false,
             state,
             body: String::new(),
             submitted_at: None,

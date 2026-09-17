@@ -298,6 +298,7 @@ mod tests {
                 }],
                 reviews: vec![ReviewSnapshot {
                     author: "alice".to_string(),
+                    author_is_bot: false,
                     state: ReviewState::Approved,
                     body: String::new(),
                     submitted_at: None,

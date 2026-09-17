@@ -59,6 +59,7 @@ query OpenPRs($first: Int!, $after: String) {
           nodes {
             author {
               login
+              __typename
             }
             state
             submittedAt
@@ -69,6 +70,7 @@ query OpenPRs($first: Int!, $after: String) {
           nodes {
             author {
               login
+              __typename
             }
             body
             createdAt

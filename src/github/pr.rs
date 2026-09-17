@@ -56,6 +56,7 @@ pub enum CheckKind {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReviewSnapshot {
     pub author: String,
+    pub author_is_bot: bool,
     pub state: ReviewState,
     pub body: String,
     pub submitted_at: Option<String>,
@@ -64,6 +65,7 @@ pub struct ReviewSnapshot {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CommentSnapshot {
     pub author: String,
+    pub author_is_bot: bool,
     pub body: String,
     pub created_at: String,
 }
@@ -107,6 +109,11 @@ pub fn from_dto(node: &PullRequestNode) -> PullRequestSnapshot {
                 .as_ref()
                 .and_then(|a| a.login.clone())
                 .unwrap_or_default(),
+            author_is_bot: c
+                .author
+                .as_ref()
+                .map(|a| a.typename.as_deref() == Some("Bot"))
+                .unwrap_or(false),
             body: c.body.clone(),
             created_at: c.created_at.clone().unwrap_or_default(),
         })
@@ -219,6 +226,11 @@ fn review_from_dto(node: &ReviewNode) -> ReviewSnapshot {
             .as_ref()
             .and_then(|a| a.login.clone())
             .unwrap_or_default(),
+        author_is_bot: node
+            .author
+            .as_ref()
+            .map(|a| a.typename.as_deref() == Some("Bot"))
+            .unwrap_or(false),
         state: node.state.clone(),
         body: node.body.clone(),
         submitted_at: node.submitted_at.clone(),

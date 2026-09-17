@@ -169,22 +169,10 @@ impl AuthorLabel {
     }
 }
 
-pub fn detect_label(login: &str) -> AuthorLabel {
-    let lower = login.to_lowercase();
-    if lower.contains("copilot") {
+pub fn detect_label(login: &str, is_bot: bool) -> AuthorLabel {
+    if login.to_lowercase().contains("copilot") {
         AuthorLabel::Ai
-    } else if lower.ends_with("[bot]")
-        || lower.ends_with("-bot")
-        || lower == "dependabot"
-        || lower == "github-actions"
-        || lower == "github-actions[bot]"
-        || lower == "renovate"
-        || lower == "renovate-bot"
-        || lower == "mergify"
-        || lower == "semantic-release-bot"
-        || lower == "netlify"
-        || lower == "vercel"
-    {
+    } else if is_bot {
         AuthorLabel::Bot
     } else {
         AuthorLabel::None
@@ -235,7 +223,7 @@ pub fn build_activity_entries(
         entries.push(ActivityEntry {
             kind,
             author: review.author.clone(),
-            label: detect_label(&review.author),
+            label: detect_label(&review.author, review.author_is_bot),
             created_at: review.submitted_at.clone().unwrap_or_default(),
             body: review.body.clone(),
         });
@@ -245,7 +233,7 @@ pub fn build_activity_entries(
         entries.push(ActivityEntry {
             kind: EntryKind::Comment,
             author: comment.author.clone(),
-            label: detect_label(&comment.author),
+            label: detect_label(&comment.author, comment.author_is_bot),
             created_at: comment.created_at.clone(),
             body: comment.body.clone(),
         });
@@ -421,29 +409,29 @@ mod tests {
     #[test]
     fn detect_label_copilot() {
         assert_eq!(
-            detect_label("copilot-pull-request-reviewer"),
+            detect_label("copilot-pull-request-reviewer", true),
             AuthorLabel::Ai
         );
     }
 
     #[test]
     fn detect_label_bot_suffix() {
-        assert_eq!(detect_label("github-actions[bot]"), AuthorLabel::Bot);
+        assert_eq!(detect_label("github-actions", true), AuthorLabel::Bot);
     }
 
     #[test]
     fn detect_label_dependabot() {
-        assert_eq!(detect_label("dependabot"), AuthorLabel::Bot);
+        assert_eq!(detect_label("dependabot", true), AuthorLabel::Bot);
     }
 
     #[test]
     fn detect_label_human() {
-        assert_eq!(detect_label("alice"), AuthorLabel::None);
+        assert_eq!(detect_label("alice", false), AuthorLabel::None);
     }
 
     #[test]
     fn detect_label_empty() {
-        assert_eq!(detect_label(""), AuthorLabel::None);
+        assert_eq!(detect_label("", false), AuthorLabel::None);
     }
 
     // --- build_activity_entries tests ---
@@ -452,12 +440,14 @@ mod tests {
     fn activity_entries_merges_reviews_and_comments() {
         let reviews = vec![ReviewSnapshot {
             author: "alice".to_string(),
+            author_is_bot: false,
             state: ReviewState::Approved,
             body: String::new(),
             submitted_at: Some("2024-01-01T10:00:00Z".to_string()),
         }];
         let comments = vec![CommentSnapshot {
             author: "bob".to_string(),
+            author_is_bot: false,
             body: String::new(),
             created_at: "2024-01-01T12:00:00Z".to_string(),
         }];
@@ -472,12 +462,14 @@ mod tests {
         let reviews = vec![
             ReviewSnapshot {
                 author: "old".to_string(),
+                author_is_bot: false,
                 state: ReviewState::Approved,
                 body: String::new(),
                 submitted_at: Some("2024-01-01T10:00:00Z".to_string()),
             },
             ReviewSnapshot {
                 author: "new".to_string(),
+                author_is_bot: false,
                 state: ReviewState::Commented,
                 body: String::new(),
                 submitted_at: Some("2024-01-02T10:00:00Z".to_string()),
@@ -498,6 +490,7 @@ mod tests {
     fn activity_entries_label_detection() {
         let reviews = vec![ReviewSnapshot {
             author: "copilot-pull-request-reviewer".to_string(),
+            author_is_bot: false,
             state: ReviewState::Commented,
             body: String::new(),
             submitted_at: Some("2024-01-01T10:00:00Z".to_string()),
