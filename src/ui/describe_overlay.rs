@@ -461,7 +461,9 @@ fn render_subview(
 
     let is_placeholder = content == "No logs available."
         || content == "No description provided."
-        || content == "Check not found.";
+        || content == "No content available."
+        || content == "Check not found."
+        || content == "Entry not found.";
 
     let wrapped = components::wrap_text(&content, inner.width as usize);
     let lines: Vec<Line> = if is_placeholder {
