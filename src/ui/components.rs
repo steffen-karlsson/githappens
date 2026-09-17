@@ -173,7 +173,18 @@ pub fn detect_label(login: &str) -> AuthorLabel {
     let lower = login.to_lowercase();
     if lower.contains("copilot") {
         AuthorLabel::Ai
-    } else if lower.ends_with("[bot]") || lower.ends_with("-bot") || lower == "dependabot" {
+    } else if lower.ends_with("[bot]")
+        || lower.ends_with("-bot")
+        || lower == "dependabot"
+        || lower == "github-actions"
+        || lower == "github-actions[bot]"
+        || lower == "renovate"
+        || lower == "renovate-bot"
+        || lower == "mergify"
+        || lower == "semantic-release-bot"
+        || lower == "netlify"
+        || lower == "vercel"
+    {
         AuthorLabel::Bot
     } else {
         AuthorLabel::None
