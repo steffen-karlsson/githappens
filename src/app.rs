@@ -35,6 +35,7 @@ pub enum DescribeFocus {
 pub enum DescribeSubView {
     Description,
     CheckDetail { index: usize },
+    ActivityDetail { index: usize },
 }
 
 pub struct App {
@@ -207,7 +208,16 @@ impl App {
                     self.describe_subview = Some(DescribeSubView::CheckDetail { index });
                 }
             }
-            DescribeFocus::Activity => {}
+            DescribeFocus::Activity => {
+                let index = self.describe_scroll;
+                let count = self
+                    .prs
+                    .get(self.selected)
+                    .map_or(0, |pr| pr.reviews.len() + pr.comments.len());
+                if count > index {
+                    self.describe_subview = Some(DescribeSubView::ActivityDetail { index });
+                }
+            }
         }
         self.describe_subview_scroll = 0;
     }

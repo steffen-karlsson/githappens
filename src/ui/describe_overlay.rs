@@ -431,6 +431,20 @@ fn render_subview(
                 ("Check".to_string(), "Check not found.".to_string())
             }
         }
+        DescribeSubView::ActivityDetail { index } => {
+            let entries = components::build_activity_entries(&pr.reviews, &pr.comments);
+            if let Some(entry) = entries.get(*index) {
+                let title = format!("{} · {}", entry.kind.display(), entry.author);
+                let content = if entry.body.is_empty() {
+                    "No content available.".to_string()
+                } else {
+                    components::strip_markdown(&entry.body)
+                };
+                (title, content)
+            } else {
+                ("Activity".to_string(), "Entry not found.".to_string())
+            }
+        }
     };
 
     let block = Block::default()
