@@ -95,9 +95,10 @@ pub fn strip_markdown(text: &str) -> String {
             continue;
         }
         let chars: Vec<char> = trimmed.chars().collect();
-        if chars.len() > 3 && chars[2] == '.' && chars[3] == ' ' {
+        if chars.len() >= 3 && chars[1] == '.' && chars[2] == ' ' && chars[0].is_ascii_digit() {
             result.push_str("  ");
-            result.push_str(trimmed[4..].trim_start());
+            let rest: String = chars[3..].iter().collect();
+            result.push_str(rest.trim_start());
             result.push('\n');
             continue;
         }
