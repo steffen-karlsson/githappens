@@ -3,6 +3,13 @@ name: Release
 on:
   push:
     branches: [main]
+    paths:
+      - 'src/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/**'
+      - 'Makefile'
+      - 'install.sh'
 
 permissions:
   contents: write
