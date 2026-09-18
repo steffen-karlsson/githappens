@@ -22,6 +22,7 @@ pub fn render(frame: &mut ratatui::Frame, area: Rect, app: &App) {
     let ideal_h: u16 = 2 + 2 + (MAX_DESC_LINES as u16 + 2) + (MAX_VISIBLE_ROWS + 2) * 2;
     let popup_h = ideal_h.min(area.height);
     let popup = centered_fixed(area, 80, popup_h);
+    frame.render_widget(Clear, popup);
 
     let block = Block::default()
         .borders(Borders::ALL)
