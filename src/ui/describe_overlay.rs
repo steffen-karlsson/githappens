@@ -522,8 +522,10 @@ fn centered(area: Rect, width_pct: u16, height_pct: u16) -> Rect {
 }
 
 fn centered_fixed(area: Rect, width_pct: u16, height: u16) -> Rect {
+    let height = height.min(area.height);
+    let top_margin = area.height.saturating_sub(height) / 2;
     let v = Layout::vertical([
-        Constraint::Min(0),
+        Constraint::Length(top_margin),
         Constraint::Length(height),
         Constraint::Min(0),
     ])
