@@ -478,4 +478,44 @@ mod tests {
         let pr = make_app_with_prs().prs[0].clone();
         assert_eq!(get_approval(&pr), ApprovalState::Approved);
     }
+
+    #[test]
+    fn describe_overlay_renders_over_dashboard() {
+        let mut app = make_app_with_prs();
+        app.selected = 0;
+        app.describe_visible = true;
+        let backend = TestBackend::new(120, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal.draw(|f| render(f, &mut app)).unwrap();
+        let text = extract_text(&terminal);
+        assert!(text.contains("Description"));
+        assert!(text.contains("Checks"));
+        assert!(text.contains("Activity"));
+        assert!(text.contains("#42"));
+    }
+
+    #[test]
+    fn describe_overlay_renders_on_small_terminal() {
+        let mut app = make_app_with_prs();
+        app.selected = 0;
+        app.describe_visible = true;
+        let backend = TestBackend::new(80, 15);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal.draw(|f| render(f, &mut app)).unwrap();
+        let text = extract_text(&terminal);
+        assert!(text.contains("#42"));
+    }
+
+    #[test]
+    fn describe_overlay_not_rendered_in_error_state() {
+        let mut app = make_app_with_prs();
+        app.describe_visible = true;
+        app.state = crate::app::AppState::Error("Something broke".to_string());
+        let backend = TestBackend::new(80, 20);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal.draw(|f| render(f, &mut app)).unwrap();
+        let text = extract_text(&terminal);
+        assert!(text.contains("Something broke"));
+        assert!(!text.contains("Description"));
+    }
 }

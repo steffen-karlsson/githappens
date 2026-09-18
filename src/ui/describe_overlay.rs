@@ -46,7 +46,7 @@ pub fn render(frame: &mut ratatui::Frame, area: Rect, app: &App) {
     let desc_h: u16 = (MAX_DESC_LINES as u16 + 2)
         .max(3)
         .min(available.saturating_sub(details_h));
-    let remaining = available.saturating_sub(details_h + desc_h);
+    let remaining = available.saturating_sub(details_h + desc_h + 1);
     let table_min = 3u16;
     let table_h: u16 = (MAX_VISIBLE_ROWS + 3).max(table_min).min(remaining / 2);
 
