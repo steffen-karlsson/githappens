@@ -18,9 +18,10 @@ pub fn render(frame: &mut ratatui::Frame, app: &mut App) {
         return;
     }
 
-    match &app.state {
+    let rendered_dashboard = match &app.state {
         crate::app::AppState::Error(msg) => {
             crate::ui::error_screen::render(frame, area, msg);
+            false
         }
         crate::app::AppState::RateLimited { retry_after_secs } => {
             let countdown = app
@@ -28,19 +29,22 @@ pub fn render(frame: &mut ratatui::Frame, app: &mut App) {
                 .unwrap_or_else(|| format!("{}s", retry_after_secs));
             let msg = format!("Rate limited by GitHub. Retry in {countdown}");
             crate::ui::error_screen::render(frame, area, &msg);
+            false
         }
         crate::app::AppState::Loading | crate::app::AppState::Refreshing if app.prs.is_empty() => {
             let spinner = app.spinner();
             let msg = format!(" {spinner}  Fetching your PRs... ");
             let paragraph = Paragraph::new(msg).centered();
             frame.render_widget(paragraph, area);
+            false
         }
         _ => {
             render_dashboard(frame, area, app);
+            true
         }
-    }
+    };
 
-    if app.describe_visible {
+    if rendered_dashboard && app.describe_visible {
         crate::ui::describe_overlay::render(frame, area, app);
     }
 }

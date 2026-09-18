@@ -19,7 +19,7 @@ pub fn render(frame: &mut ratatui::Frame, area: Rect, app: &App) {
         return;
     };
 
-    let ideal_h: u16 = 2 + 2 + (MAX_DESC_LINES as u16 + 2) + (MAX_VISIBLE_ROWS + 2) * 2;
+    let ideal_h: u16 = 2 + 2 + (MAX_DESC_LINES as u16 + 2) + (MAX_VISIBLE_ROWS + 3) * 2 + 1;
     let popup_h = ideal_h.min(area.height);
     let popup = centered_fixed(area, 80, popup_h);
     frame.render_widget(Clear, popup);
@@ -48,7 +48,7 @@ pub fn render(frame: &mut ratatui::Frame, area: Rect, app: &App) {
         .min(available.saturating_sub(details_h));
     let remaining = available.saturating_sub(details_h + desc_h);
     let table_min = 3u16;
-    let table_h: u16 = (MAX_VISIBLE_ROWS + 2).max(table_min).min(remaining / 2);
+    let table_h: u16 = (MAX_VISIBLE_ROWS + 3).max(table_min).min(remaining / 2);
 
     let chunks = Layout::vertical([
         Constraint::Length(details_h),
