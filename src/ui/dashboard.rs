@@ -18,11 +18,6 @@ pub fn render(frame: &mut ratatui::Frame, app: &mut App) {
         return;
     }
 
-    if app.describe_visible {
-        crate::ui::describe_overlay::render(frame, area, app);
-        return;
-    }
-
     match &app.state {
         crate::app::AppState::Error(msg) => {
             crate::ui::error_screen::render(frame, area, msg);
@@ -43,6 +38,10 @@ pub fn render(frame: &mut ratatui::Frame, app: &mut App) {
         _ => {
             render_dashboard(frame, area, app);
         }
+    }
+
+    if app.describe_visible {
+        crate::ui::describe_overlay::render(frame, area, app);
     }
 }
 
