@@ -9,7 +9,6 @@ on:
       - 'Cargo.lock'
       - '.github/workflows/**'
       - 'Makefile'
-      - 'install.sh'
 
 permissions:
   contents: write
