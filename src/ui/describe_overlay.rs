@@ -19,8 +19,9 @@ pub fn render(frame: &mut ratatui::Frame, area: Rect, app: &App) {
         return;
     };
 
-    let popup = centered(area, 80, 85);
-    frame.render_widget(Clear, popup);
+    let ideal_h: u16 = 2 + 2 + (MAX_DESC_LINES as u16 + 2) + (MAX_VISIBLE_ROWS + 2) * 2;
+    let popup_h = ideal_h.min(area.height);
+    let popup = centered_fixed(area, 80, popup_h);
 
     let block = Block::default()
         .borders(Borders::ALL)
@@ -517,4 +518,20 @@ fn centered(area: Rect, width_pct: u16, height_pct: u16) -> Rect {
         Constraint::Percentage((100 - width_pct) / 2),
     ])
     .split(popup[1])[1]
+}
+
+fn centered_fixed(area: Rect, width_pct: u16, height: u16) -> Rect {
+    let v = Layout::vertical([
+        Constraint::Min(0),
+        Constraint::Length(height),
+        Constraint::Min(0),
+    ])
+    .split(area);
+
+    Layout::horizontal([
+        Constraint::Percentage((100 - width_pct) / 2),
+        Constraint::Percentage(width_pct),
+        Constraint::Percentage((100 - width_pct) / 2),
+    ])
+    .split(v[1])[1]
 }
