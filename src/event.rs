@@ -15,7 +15,7 @@ pub fn read_event(timeout: Duration) -> Option<Event> {
             _ => None,
         }
     } else {
-        None
+        Some(Event::Tick)
     }
 }
 

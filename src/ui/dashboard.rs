@@ -1,16 +1,16 @@
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Modifier, Style};
+use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Paragraph, Row, Table};
 
 use crate::analysis::approval::{ApprovalState, collapse_reviews};
 use crate::analysis::mergeability::{MergeReadiness, assess};
 use crate::analysis::workflows::{WorkflowCounts, count_checks, render_counts};
-use crate::app::App;
+use crate::app::{App, format_duration};
 use crate::ui::components;
 use crate::ui::theme;
 
-pub fn render(frame: &mut ratatui::Frame, app: &mut App) {
+pub fn render(frame: &mut ratatui::Frame, app: &App) {
     let area = frame.area();
 
     if app.help_visible {
@@ -32,7 +32,7 @@ pub fn render(frame: &mut ratatui::Frame, app: &mut App) {
             false
         }
         crate::app::AppState::Loading | crate::app::AppState::Refreshing if app.prs.is_empty() => {
-            let spinner = app.spinner();
+            let spinner = app.spinner_frame();
             let msg = format!(" {spinner}  Fetching your PRs... ");
             let paragraph = Paragraph::new(msg).centered();
             frame.render_widget(paragraph, area);
@@ -49,52 +49,82 @@ pub fn render(frame: &mut ratatui::Frame, app: &mut App) {
     }
 }
 
-fn render_dashboard(frame: &mut ratatui::Frame, area: Rect, app: &mut App) {
+fn render_dashboard(frame: &mut ratatui::Frame, area: Rect, app: &App) {
     let chunks = Layout::vertical([
-        Constraint::Length(3),
+        Constraint::Length(2),
         Constraint::Min(1),
         Constraint::Length(1),
     ])
     .split(area);
 
-    render_header(frame, chunks[0], &mut *app);
+    render_header(frame, chunks[0], app);
     render_table(frame, chunks[1], app);
     render_footer(frame, chunks[2], app);
+    render_status(frame, chunks[0], app);
 }
 
-fn render_header(frame: &mut ratatui::Frame, area: Rect, app: &mut App) {
-    let spinner = if app.is_refreshing() {
-        Some(app.spinner())
-    } else {
-        None
-    };
+fn render_header(frame: &mut ratatui::Frame, area: Rect, app: &App) {
     let scope = match &app.org {
         Some(org) => format!(" in {}", org),
         None => String::new(),
     };
-    let title = if let Some(spinner) = spinner {
-        format!(
-            " {} {} — {}'s open PRs{} · refreshing... ",
-            spinner,
-            theme::HEADER_LABEL.trim(),
-            app.viewer_login,
-            scope,
-        )
-    } else {
-        format!(
-            " {} — {}'s open PRs{} · refreshed {}s ago ",
-            theme::HEADER_LABEL.trim(),
-            app.viewer_login,
-            scope,
-            app.last_refresh_secs()
-        )
-    };
+    let title = format!(
+        " {} — {}'s open PRs{} ",
+        theme::HEADER_LABEL.trim(),
+        app.viewer_login,
+        scope,
+    );
 
     let header = Block::default()
         .borders(Borders::BOTTOM)
         .title(Line::from(title.as_str()));
 
     frame.render_widget(header, area);
+}
+
+fn render_status(frame: &mut ratatui::Frame, area: Rect, app: &App) {
+    // Status occupies the top-right corner of the header's inner area.
+    // The header block's bottom border is on line 2; we stay on line 0.
+    let inner = Block::default().borders(Borders::BOTTOM).inner(area);
+    let status_width = 40;
+    let status_area = Rect {
+        x: inner.x + inner.width.saturating_sub(status_width),
+        y: inner.y,
+        width: status_width.min(inner.width),
+        height: 1,
+    };
+
+    let grey = Style::default().fg(theme::COLOR_NONE);
+    let faded_red = Style::default().fg(Color::Rgb(180, 60, 60));
+
+    let line = if app.is_refreshing() || app.secs_until_refresh() == 0 {
+        let spinner = app.spinner_frame();
+        Line::styled(format!("{spinner} refreshing"), grey)
+    } else if app.last_error.is_some() {
+        Line::styled(
+            format!(
+                "refresh failed {} ago",
+                format_duration(app.last_refresh_attempt_secs())
+            ),
+            faded_red,
+        )
+    } else {
+        let interval = format_duration(app.refresh_interval_secs());
+        let remaining = format_duration(app.secs_until_refresh());
+        let bar = progress_bar(1.0 - app.refresh_progress(), 10);
+        Line::styled(format!("auto {interval} {bar} {remaining}"), grey)
+    };
+
+    let paragraph = Paragraph::new(line).right_aligned();
+    frame.render_widget(paragraph, status_area);
+}
+
+/// A simple ASCII progress bar: `▰▰▰▰▱▱▱▱▱▱` (filled = remaining fraction).
+fn progress_bar(fraction: f64, width: usize) -> String {
+    let filled = (fraction * width as f64).round() as usize;
+    let filled = filled.min(width);
+    let empty = width - filled;
+    format!("{}{}", "▰".repeat(filled), "▱".repeat(empty))
 }
 
 fn render_table(frame: &mut ratatui::Frame, area: Rect, app: &App) {
@@ -353,10 +383,10 @@ mod tests {
 
     #[test]
     fn render_dashboard_with_prs() {
-        let mut app = make_app_with_prs();
+        let app = make_app_with_prs();
         let backend = TestBackend::new(120, 20);
         let mut terminal = Terminal::new(backend).unwrap();
-        terminal.draw(|f| render(f, &mut app)).unwrap();
+        terminal.draw(|f| render(f, &app)).unwrap();
         let text = extract_text(&terminal);
         assert!(text.contains("Add feature"));
         assert!(text.contains("[Draft] Draft PR"));
@@ -383,7 +413,7 @@ mod tests {
         app.viewer_login = "ska".to_string();
         let backend = TestBackend::new(80, 20);
         let mut terminal = Terminal::new(backend).unwrap();
-        terminal.draw(|f| render(f, &mut app)).unwrap();
+        terminal.draw(|f| render(f, &app)).unwrap();
         let text = extract_text(&terminal);
         assert!(text.contains("no open PRs"));
     }
@@ -403,7 +433,7 @@ mod tests {
         app.state = crate::app::AppState::Loading;
         let backend = TestBackend::new(80, 20);
         let mut terminal = Terminal::new(backend).unwrap();
-        terminal.draw(|f| render(f, &mut app)).unwrap();
+        terminal.draw(|f| render(f, &app)).unwrap();
         let text = extract_text(&terminal);
         assert!(text.contains("Fetching"));
     }
@@ -423,7 +453,7 @@ mod tests {
         app.state = crate::app::AppState::Error("Something broke".to_string());
         let backend = TestBackend::new(80, 20);
         let mut terminal = Terminal::new(backend).unwrap();
-        terminal.draw(|f| render(f, &mut app)).unwrap();
+        terminal.draw(|f| render(f, &app)).unwrap();
         let text = extract_text(&terminal);
         assert!(text.contains("Something broke"));
         assert!(text.contains("Press r to retry"));
@@ -446,7 +476,7 @@ mod tests {
         };
         let backend = TestBackend::new(80, 20);
         let mut terminal = Terminal::new(backend).unwrap();
-        terminal.draw(|f| render(f, &mut app)).unwrap();
+        terminal.draw(|f| render(f, &app)).unwrap();
         let text = extract_text(&terminal);
         assert!(text.contains("Rate limited"));
         assert!(text.contains("Retry in"));
@@ -467,7 +497,7 @@ mod tests {
         app.help_visible = true;
         let backend = TestBackend::new(80, 30);
         let mut terminal = Terminal::new(backend).unwrap();
-        terminal.draw(|f| render(f, &mut app)).unwrap();
+        terminal.draw(|f| render(f, &app)).unwrap();
         let text = extract_text(&terminal);
         assert!(text.contains("Keybindings"));
     }
@@ -478,7 +508,7 @@ mod tests {
         app.selected = 1;
         let backend = TestBackend::new(120, 20);
         let mut terminal = Terminal::new(backend).unwrap();
-        terminal.draw(|f| render(f, &mut app)).unwrap();
+        terminal.draw(|f| render(f, &app)).unwrap();
         let text = extract_text(&terminal);
         assert!(text.contains("Draft PR"));
     }
@@ -502,7 +532,7 @@ mod tests {
         app.describe_visible = true;
         let backend = TestBackend::new(120, 30);
         let mut terminal = Terminal::new(backend).unwrap();
-        terminal.draw(|f| render(f, &mut app)).unwrap();
+        terminal.draw(|f| render(f, &app)).unwrap();
         let text = extract_text(&terminal);
         assert!(text.contains("Description"));
         assert!(text.contains("Checks"));
@@ -517,7 +547,7 @@ mod tests {
         app.describe_visible = true;
         let backend = TestBackend::new(80, 15);
         let mut terminal = Terminal::new(backend).unwrap();
-        terminal.draw(|f| render(f, &mut app)).unwrap();
+        terminal.draw(|f| render(f, &app)).unwrap();
         let text = extract_text(&terminal);
         assert!(text.contains("#42"));
     }
@@ -529,9 +559,69 @@ mod tests {
         app.state = crate::app::AppState::Error("Something broke".to_string());
         let backend = TestBackend::new(80, 20);
         let mut terminal = Terminal::new(backend).unwrap();
-        terminal.draw(|f| render(f, &mut app)).unwrap();
+        terminal.draw(|f| render(f, &app)).unwrap();
         let text = extract_text(&terminal);
         assert!(text.contains("Something broke"));
         assert!(!text.contains("Description"));
+    }
+
+    #[test]
+    fn render_status_shows_auto_countdown_when_ready() {
+        let mut app = make_app_with_prs();
+        app.state = crate::app::AppState::Ready;
+        app.last_refresh_attempt = Some(std::time::Instant::now());
+        let backend = TestBackend::new(120, 20);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        let text = extract_text(&terminal);
+        assert!(text.contains("auto"), "should show auto countdown prefix");
+    }
+
+    #[test]
+    fn render_status_shows_refreshing_when_refreshing() {
+        let mut app = make_app_with_prs();
+        app.state = crate::app::AppState::Refreshing;
+        let backend = TestBackend::new(120, 20);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        let text = extract_text(&terminal);
+        assert!(text.contains("refreshing"), "should show refreshing text");
+    }
+
+    #[test]
+    fn render_status_shows_refresh_failed_when_error_present() {
+        let mut app = make_app_with_prs();
+        app.state = crate::app::AppState::Ready;
+        app.last_error = Some("Request timed out".to_string());
+        app.last_refresh_attempt = Some(std::time::Instant::now());
+        let backend = TestBackend::new(120, 20);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        let text = extract_text(&terminal);
+        assert!(
+            text.contains("refresh failed"),
+            "should show refresh failed text"
+        );
+        assert!(
+            !text.contains("auto"),
+            "should not show countdown when error present"
+        );
+    }
+
+    #[test]
+    fn render_status_shows_refreshing_at_zero_countdown() {
+        let mut app = make_app_with_prs();
+        app.state = crate::app::AppState::Ready;
+        // Set last_refresh_attempt far enough back that secs_until_refresh is 0.
+        app.last_refresh_attempt =
+            Some(std::time::Instant::now() - std::time::Duration::from_secs(9999));
+        let backend = TestBackend::new(120, 20);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        let text = extract_text(&terminal);
+        assert!(
+            text.contains("refreshing"),
+            "should show refreshing when countdown reaches 0"
+        );
     }
 }

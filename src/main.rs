@@ -90,8 +90,8 @@ async fn run_app(
     let tick_interval = Duration::from_millis(250);
 
     loop {
-        terminal.draw(|frame| ui::render(frame, &mut app))?;
-
+        // Process events and fetch results first, so the draw reflects
+        // the latest state (e.g. Refreshing spinner).
         if let Some(event) = githappens::event::read_event(tick_interval) {
             match event {
                 githappens::event::Event::Key(key) => {
@@ -119,6 +119,7 @@ async fn run_app(
                     }
                 }
                 githappens::event::Event::Tick => {
+                    app.advance_spinner();
                     if app.should_auto_refresh() && app.can_refresh() {
                         app.state = AppState::Refreshing;
                         spawn_refresh(&fetcher, &owner, max_prs, &result_tx);
@@ -130,6 +131,8 @@ async fn run_app(
         while let Ok(result) = result_rx.try_recv() {
             app.apply_fetch_result(result);
         }
+
+        terminal.draw(|frame| ui::render(frame, &app))?;
     }
 
     restore_terminal();

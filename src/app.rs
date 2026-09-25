@@ -50,6 +50,8 @@ pub struct App {
     pub describe_subview: Option<DescribeSubView>,
     pub describe_subview_scroll: usize,
     pub last_refresh: Option<Instant>,
+    pub last_error: Option<String>,
+    pub last_refresh_attempt: Option<Instant>,
     pub truncated: bool,
     pub org: Option<String>,
     refresh_interval: Duration,
@@ -57,6 +59,27 @@ pub struct App {
 }
 
 const SPINNER_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+/// Human-readable duration: `45s`, `5m20s`, `5m`, `1h5m`, `1h`.
+pub fn format_duration(secs: u64) -> String {
+    if secs < 60 {
+        return format!("{secs}s");
+    }
+    let hours = secs / 3600;
+    let minutes = (secs % 3600) / 60;
+    let seconds = secs % 60;
+    if hours > 0 {
+        if minutes > 0 {
+            format!("{hours}h{minutes}m")
+        } else {
+            format!("{hours}h")
+        }
+    } else if seconds > 0 {
+        format!("{minutes}m{seconds}s")
+    } else {
+        format!("{minutes}m")
+    }
+}
 
 impl App {
     pub fn new(config: &Config) -> Self {
@@ -72,6 +95,8 @@ impl App {
             describe_subview: None,
             describe_subview_scroll: 0,
             last_refresh: None,
+            last_error: None,
+            last_refresh_attempt: None,
             truncated: false,
             org: config.org.clone(),
             refresh_interval: Duration::from_secs(300),
@@ -94,18 +119,57 @@ impl App {
         if self.state != AppState::Ready {
             return false;
         }
-        self.last_refresh
+        self.last_refresh_attempt
             .map(|t| t.elapsed() >= self.refresh_interval)
             .unwrap_or(true)
+    }
+
+    pub fn secs_until_refresh(&self) -> u64 {
+        self.last_refresh_attempt
+            .map(|t| {
+                self.refresh_interval
+                    .as_secs()
+                    .saturating_sub(t.elapsed().as_secs())
+                    .saturating_sub(1)
+            })
+            .unwrap_or(self.refresh_interval.as_secs().saturating_sub(1))
+    }
+
+    pub fn last_refresh_attempt_secs(&self) -> u64 {
+        self.last_refresh_attempt
+            .map(|t| t.elapsed().as_secs())
+            .unwrap_or(0)
+    }
+
+    pub fn refresh_interval_secs(&self) -> u64 {
+        self.refresh_interval.as_secs()
+    }
+
+    /// Fraction of the refresh interval elapsed since last attempt (0.0–1.0).
+    /// Offset by 1s so the bar starts slightly depleted, matching the -1s countdown.
+    pub fn refresh_progress(&self) -> f64 {
+        self.last_refresh_attempt
+            .map(|t| {
+                ((t.elapsed().as_secs_f64() + 1.0) / self.refresh_interval.as_secs_f64()).min(1.0)
+            })
+            .unwrap_or(1.0 / self.refresh_interval.as_secs_f64())
     }
 
     pub fn is_refreshing(&self) -> bool {
         matches!(self.state, AppState::Refreshing | AppState::Loading)
     }
 
-    pub fn spinner(&mut self) -> &'static str {
-        let frame = SPINNER_FRAMES[self.spinner_idx % SPINNER_FRAMES.len()];
+    pub fn spinner_frame(&self) -> &'static str {
+        SPINNER_FRAMES[self.spinner_idx % SPINNER_FRAMES.len()]
+    }
+
+    pub fn advance_spinner(&mut self) {
         self.spinner_idx = self.spinner_idx.wrapping_add(1);
+    }
+
+    pub fn spinner(&mut self) -> &'static str {
+        let frame = self.spinner_frame();
+        self.advance_spinner();
         frame
     }
 
@@ -333,19 +397,21 @@ impl App {
                 self.apply_outcome(outcome);
             }
             Err(e) => {
-                self.state = match e {
-                    FetchError::RateLimited { retry_after_secs } => {
-                        AppState::RateLimited { retry_after_secs }
-                    }
-                    FetchError::TokenInvalid => {
-                        AppState::Error("Token invalid or expired".to_string())
-                    }
-                    FetchError::GitHubUnavailable => {
-                        AppState::Error("GitHub unavailable, try again".to_string())
-                    }
-                    FetchError::Timeout => AppState::Error("Request timed out".to_string()),
-                    _ => AppState::Error(e.to_string()),
-                };
+                // Rate-limited always shows the full-screen countdown.
+                if let FetchError::RateLimited { retry_after_secs } = e {
+                    self.state = AppState::RateLimited { retry_after_secs };
+                    self.last_refresh_attempt = Some(Instant::now());
+                    return;
+                }
+                // With existing PRs, keep the dashboard visible.
+                if !self.prs.is_empty() {
+                    self.last_error = Some(error_message(&e));
+                    self.last_refresh_attempt = Some(Instant::now());
+                    self.state = AppState::Ready;
+                    return;
+                }
+                // No data yet — show the full-screen error.
+                self.state = AppState::Error(error_message(&e));
             }
         }
     }
@@ -360,6 +426,8 @@ impl App {
         self.viewer_login = outcome.login;
         self.truncated = outcome.truncated;
         self.last_refresh = Some(Instant::now());
+        self.last_error = None;
+        self.last_refresh_attempt = Some(Instant::now());
         self.state = AppState::Ready;
         if self.selected >= self.prs.len() && !self.prs.is_empty() {
             self.selected = self.prs.len() - 1;
@@ -399,18 +467,26 @@ impl App {
         match &self.state {
             AppState::RateLimited { retry_after_secs } => {
                 let elapsed = self
-                    .last_refresh
+                    .last_refresh_attempt
                     .map(|t| t.elapsed().as_secs())
                     .unwrap_or(0);
                 let remaining = retry_after_secs.saturating_sub(elapsed);
-                if remaining >= 60 {
-                    Some(format!("{}m", remaining / 60))
-                } else {
-                    Some(format!("{}s", remaining))
-                }
+                Some(format_duration(remaining))
             }
             _ => None,
         }
+    }
+}
+
+fn error_message(e: &FetchError) -> String {
+    match e {
+        FetchError::RateLimited { retry_after_secs } => {
+            format!("Rate limited, retry in {retry_after_secs}s")
+        }
+        FetchError::TokenInvalid => "Token invalid or expired".to_string(),
+        FetchError::GitHubUnavailable => "GitHub unavailable".to_string(),
+        FetchError::Timeout => "Request timed out".to_string(),
+        other => other.to_string(),
     }
 }
 
@@ -586,7 +662,7 @@ mod tests {
         let cfg = make_config();
         let mut app = App::new(&cfg);
         app.state = AppState::Ready;
-        app.last_refresh = Some(Instant::now());
+        app.last_refresh_attempt = Some(Instant::now());
         assert!(!app.should_auto_refresh());
     }
 
@@ -595,7 +671,7 @@ mod tests {
         let cfg = make_config();
         let mut app = App::new(&cfg).with_refresh_interval(0);
         app.state = AppState::Ready;
-        app.last_refresh = Some(Instant::now());
+        app.last_refresh_attempt = Some(Instant::now());
         std::thread::sleep(Duration::from_millis(10));
         assert!(app.should_auto_refresh());
     }
@@ -1134,7 +1210,7 @@ mod tests {
         app.state = AppState::RateLimited {
             retry_after_secs: 45,
         };
-        app.last_refresh = Some(Instant::now());
+        app.last_refresh_attempt = Some(Instant::now());
         let countdown = app.rate_limit_countdown();
         assert!(countdown.is_some());
         assert!(countdown.unwrap().contains('s'));
@@ -1152,8 +1228,110 @@ mod tests {
         let cfg = make_config();
         let mut app = App::new(&cfg);
         app.state = AppState::Ready;
-        app.last_refresh = Some(Instant::now());
+        app.last_refresh_attempt = Some(Instant::now());
         assert!(!app.should_auto_refresh());
+    }
+
+    fn make_pr_simple(number: u32) -> PullRequestSnapshot {
+        PullRequestSnapshot {
+            number,
+            title: format!("PR {number}"),
+            url: format!("https://github.com/o/r/pull/{number}"),
+            body: String::new(),
+            is_draft: false,
+            mergeable: crate::github::models::MergeableState::Mergeable,
+            repo: "o/r".to_string(),
+            rollup_state: None,
+            checks: vec![],
+            reviews: vec![],
+            up_to_date: crate::github::pr::UpToDateState::Unknown,
+            additions: 0,
+            deletions: 0,
+            created_at: String::new(),
+            comments: vec![],
+        }
+    }
+
+    #[test]
+    fn error_with_existing_prs_stays_ready() {
+        let cfg = make_config();
+        let mut app = App::new(&cfg);
+        // First load PRs successfully.
+        app.apply_fetch_result(Ok(FetchOutcome {
+            login: "ska".to_string(),
+            prs: vec![make_pr_simple(1)],
+            truncated: false,
+        }));
+        assert_eq!(app.state, AppState::Ready);
+        assert!(app.last_error.is_none());
+        // Then a timeout error — dashboard should stay visible.
+        app.apply_fetch_result(Err(FetchError::Timeout));
+        assert_eq!(app.state, AppState::Ready);
+        assert!(app.last_error.is_some());
+        assert_eq!(app.prs.len(), 1);
+    }
+
+    #[test]
+    fn error_with_empty_prs_transitions_to_error() {
+        let cfg = make_config();
+        let mut app = App::new(&cfg);
+        app.apply_fetch_result(Err(FetchError::Timeout));
+        assert!(matches!(app.state, AppState::Error(_)));
+    }
+
+    #[test]
+    fn rate_limited_always_transitions_to_rate_limited() {
+        let cfg = make_config();
+        let mut app = App::new(&cfg);
+        // Load PRs first.
+        app.apply_fetch_result(Ok(FetchOutcome {
+            login: "ska".to_string(),
+            prs: vec![make_pr_simple(1)],
+            truncated: false,
+        }));
+        // Rate limit should still go to RateLimited even with PRs.
+        app.apply_fetch_result(Err(FetchError::RateLimited {
+            retry_after_secs: 60,
+        }));
+        assert!(app.is_rate_limited());
+    }
+
+    #[test]
+    fn should_auto_refresh_after_error_uses_last_attempt() {
+        let cfg = make_config();
+        let mut app = App::new(&cfg);
+        // Load PRs first.
+        app.apply_fetch_result(Ok(FetchOutcome {
+            login: "ska".to_string(),
+            prs: vec![make_pr_simple(1)],
+            truncated: false,
+        }));
+        // Error refresh — stays Ready, sets last_refresh_attempt.
+        app.apply_fetch_result(Err(FetchError::Timeout));
+        assert_eq!(app.state, AppState::Ready);
+        // Should not immediately fire again — last_refresh_attempt just set.
+        assert!(!app.should_auto_refresh());
+    }
+
+    #[test]
+    fn format_duration_seconds() {
+        assert_eq!(format_duration(0), "0s");
+        assert_eq!(format_duration(45), "45s");
+        assert_eq!(format_duration(59), "59s");
+    }
+
+    #[test]
+    fn format_duration_minutes() {
+        assert_eq!(format_duration(60), "1m");
+        assert_eq!(format_duration(320), "5m20s");
+        assert_eq!(format_duration(300), "5m");
+    }
+
+    #[test]
+    fn format_duration_hours() {
+        assert_eq!(format_duration(3600), "1h");
+        assert_eq!(format_duration(3900), "1h5m");
+        assert_eq!(format_duration(7200), "2h");
     }
 
     fn make_pr_with_repo(number: u32, repo: &str) -> PullRequestSnapshot {
